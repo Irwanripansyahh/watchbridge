@@ -1,0 +1,42 @@
+# Gradle files
+.gradle/
+build/
+
+# IntelliJ IDEA/Android Studio files
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# Local configuration files
+local.properties
+.bundle/
+
+# Kotlin files
+.kotlin/
+.kotlin_build/
+
+# macOS files
+.DS_Store
+
+# Log files
+*.log
+
+# Android specific
+captures/
+.externalNativeBuild/
+.cxx/
+cmake-build-debug/
+cmake-build-release/
+
+# Secrets and credentials
+google-services.json
+*.keystore
+*.jks
+!debug.keystore
+
+# Backup files
+*.bak
+*.swp
+*~

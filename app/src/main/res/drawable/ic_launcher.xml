@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+    <!-- Bridge icon: two arcs connected -->
+    <path
+        android:fillColor="#4FC3F7"
+        android:pathData="M24,8C13.5,8 5,16.5 5,27v5h6v-5c0,-7.2 5.8,-13 13,-13s13,5.8 13,13v5h6v-5C43,16.5 34.5,8 24,8z" />
+    <path
+        android:fillColor="#29B6F6"
+        android:pathData="M24,16c-6.1,0 -11,4.9 -11,11v5h6v-5c0,-2.8 2.2,-5 5,-5s5,2.2 5,5v5h6v-5C35,20.9 30.1,16 24,16z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M24,28m-3,0a3,3 0,1 1,6 0a3,3 0,1 1,-6 0" />
+</vector>
