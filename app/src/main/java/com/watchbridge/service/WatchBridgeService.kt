@@ -13,6 +13,7 @@ import com.watchbridge.MainActivity
 import com.watchbridge.R
 import com.watchbridge.WatchBridgeApp
 import com.watchbridge.ancs.AncsSessionManager
+import com.watchbridge.ble.BleAdvertiser
 import com.watchbridge.ble.BleConnectionManager
 import com.watchbridge.ble.BondManager
 import com.watchbridge.ble.ConnectionStateMachine
@@ -21,6 +22,7 @@ import com.watchbridge.notification.AppNameResolver
 import com.watchbridge.notification.CallNotificationHandler
 import com.watchbridge.notification.NotificationActionReceiver
 import com.watchbridge.notification.NotificationRenderer
+import com.watchbridge.settings.SettingsManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -29,14 +31,6 @@ import kotlinx.coroutines.launch
 
 /**
  * Foreground service that owns the entire BLE + ANCS lifecycle.
- * Keeps the connection alive, handles auto-reconnect, and updates
- * the persistent notification with connection status.
- *
- * The service is the single owner of:
- * - BleConnectionManager
- * - ConnectionStateMachine
- * - AncsSessionManager
- * - AncsNotificationPipeline
  */
 class WatchBridgeService : Service() {
 
@@ -48,9 +42,11 @@ class WatchBridgeService : Service() {
         const val ACTION_START = "com.watchbridge.service.START"
         const val ACTION_STOP = "com.watchbridge.service.STOP"
         const val ACTION_CONNECT_BONDED = "com.watchbridge.service.CONNECT_BONDED"
+        const val ACTION_START_ADVERTISING = "com.watchbridge.service.START_ADVERTISING"
 
-        // Singleton references for activity to access
         var connectionManager: BleConnectionManager? = null
+            private set
+        var advertiser: BleAdvertiser? = null
             private set
         var sessionManager: AncsSessionManager? = null
             private set
@@ -59,6 +55,8 @@ class WatchBridgeService : Service() {
         var bondManager: BondManager? = null
             private set
         var pipeline: AncsNotificationPipeline? = null
+            private set
+        var settingsManager: SettingsManager? = null
             private set
         var isRunning: Boolean = false
             private set
@@ -74,9 +72,10 @@ class WatchBridgeService : Service() {
         super.onCreate()
         Log.i(TAG, "Service created")
 
-        // Initialize all components
+        val settings = SettingsManager(this)
         val connMgr = BleConnectionManager(this)
         val bondMgr = BondManager(this)
+        val adv = BleAdvertiser(this)
         val sessMgr = AncsSessionManager()
         val sm = ConnectionStateMachine(connMgr, bondMgr)
 
@@ -84,14 +83,15 @@ class WatchBridgeService : Service() {
         val callHandler = CallNotificationHandler(this)
         val appNameResolver = AppNameResolver(this)
         val pipe = AncsNotificationPipeline(
+            context = this,
             connectionManager = connMgr,
             sessionManager = sessMgr,
             renderer = renderer,
             callHandler = callHandler,
-            appNameResolver = appNameResolver
+            appNameResolver = appNameResolver,
+            settings = settings
         )
 
-        // Wire ANCS data callbacks
         connMgr.setAncsCallbacks(
             onNotificationSource = { data ->
                 sessMgr.processNotificationEvent(data)
@@ -104,7 +104,6 @@ class WatchBridgeService : Service() {
             }
         )
 
-        // Wire state machine callbacks
         sm.onDisconnected = {
             pipe.onDisconnected()
             sessMgr.onDisconnected()
@@ -114,17 +113,16 @@ class WatchBridgeService : Service() {
             sessMgr.resetSession()
         }
 
-        // Store references
         connectionManager = connMgr
         sessionManager = sessMgr
         stateMachine = sm
         bondManager = bondMgr
         pipeline = pipe
+        settingsManager = settings
+        advertiser = adv
 
-        // Register bond manager
         bondMgr.register()
 
-        // Register action receiver
         val receiver = NotificationActionReceiver()
         registerReceiver(
             receiver,
@@ -133,17 +131,16 @@ class WatchBridgeService : Service() {
         )
         actionReceiver = receiver
 
-        // Start pipeline and state machine
         pipe.start()
         sm.start()
 
-        // Monitor state changes to update notification
         serviceScope.launch {
             sm.state.collect { state ->
                 val statusText = when (state) {
                     ConnectionStateMachine.State.IDLE -> "Not connected"
+                    ConnectionStateMachine.State.ADVERTISING -> "Waiting for iPhone..."
                     ConnectionStateMachine.State.CONNECTING -> "Connecting..."
-                    ConnectionStateMachine.State.CONNECTED -> "Connected, discovering..."
+                    ConnectionStateMachine.State.CONNECTED -> "Bonding & discovering..."
                     ConnectionStateMachine.State.READY -> "Connected to iPhone"
                     ConnectionStateMachine.State.DISCONNECTED -> "Disconnected"
                     ConnectionStateMachine.State.WAITING_TO_RECONNECT -> "Waiting to reconnect..."
@@ -152,7 +149,6 @@ class WatchBridgeService : Service() {
                 }
                 updateNotification(statusText)
 
-                // Update session state
                 when (state) {
                     ConnectionStateMachine.State.READY ->
                         sessMgr.updateState(AncsSessionManager.SessionState.ACTIVE)
@@ -175,8 +171,18 @@ class WatchBridgeService : Service() {
             ACTION_CONNECT_BONDED -> {
                 stateMachine?.autoConnectToBonded()
             }
+            ACTION_START_ADVERTISING -> {
+                val adv = advertiser
+                val sm = stateMachine
+                if (adv != null && sm != null) {
+                    sm.startAdvertisingForPairing(adv)
+                } else {
+                    Log.e(TAG, "Cannot start advertising: advertiser=$adv, stateMachine=$sm")
+                }
+            }
             ACTION_STOP -> {
                 stateMachine?.disconnect()
+                advertiser?.close()
                 stopSelf()
                 return START_NOT_STICKY
             }
@@ -189,6 +195,7 @@ class WatchBridgeService : Service() {
     override fun onDestroy() {
         Log.i(TAG, "Service destroyed")
 
+        advertiser?.close()
         stateMachine?.disconnect()
         bondManager?.unregister()
 
@@ -199,12 +206,13 @@ class WatchBridgeService : Service() {
         releaseWakeLock()
         serviceScope.cancel()
 
-        // Clear singleton references
         connectionManager = null
         sessionManager = null
         stateMachine = null
         bondManager = null
         pipeline = null
+        settingsManager = null
+        advertiser = null
         isRunning = false
 
         super.onDestroy()
@@ -217,7 +225,7 @@ class WatchBridgeService : Service() {
                 PowerManager.PARTIAL_WAKE_LOCK,
                 WAKE_LOCK_TAG
             ).apply {
-                acquire(10 * 60 * 1000L) // 10 minutes, renewed on reconnect
+                acquire(10 * 60 * 1000L)
             }
         }
     }

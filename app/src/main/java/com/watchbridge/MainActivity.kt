@@ -1,9 +1,11 @@
 package com.watchbridge
 
 import android.Manifest
+import android.bluetooth.BluetoothDevice
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -15,14 +17,23 @@ import androidx.wear.compose.navigation.SwipeDismissableNavHost
 import androidx.wear.compose.navigation.composable
 import androidx.wear.compose.navigation.rememberSwipeDismissableNavController
 import com.watchbridge.ble.BleScanner
+import com.watchbridge.ble.ConnectionStateMachine
 import com.watchbridge.service.WatchBridgeService
+import com.watchbridge.settings.SettingsManager
 import com.watchbridge.ui.screens.HomeScreen
+import com.watchbridge.ui.screens.OnboardingScreen
 import com.watchbridge.ui.screens.PairingScreen
+import com.watchbridge.ui.screens.SettingsScreen
 import com.watchbridge.ui.theme.WatchBridgeTheme
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
 
     private lateinit var bleScanner: BleScanner
+    private lateinit var localSettings: SettingsManager
     private var permissionsGranted by mutableStateOf(false)
 
     private val permissionLauncher = registerForActivityResult(
@@ -38,7 +49,11 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         bleScanner = BleScanner(this)
+        localSettings = SettingsManager(this)
+
         checkPermissions()
+
+        val startRoute = if (localSettings.isOnboardingComplete) "home" else "onboarding"
 
         setContent {
             WatchBridgeTheme {
@@ -46,12 +61,25 @@ class MainActivity : ComponentActivity() {
 
                 SwipeDismissableNavHost(
                     navController = navController,
-                    startDestination = "home"
+                    startDestination = startRoute
                 ) {
+                    composable("onboarding") {
+                        OnboardingScreen(
+                            onComplete = {
+                                localSettings.setOnboardingComplete()
+                                navController.navigate("home") {
+                                    popUpTo("onboarding") { inclusive = true }
+                                }
+                            }
+                        )
+                    }
                     composable("home") {
                         HomeScreen(
                             onNavigateToPairing = {
                                 navController.navigate("pairing")
+                            },
+                            onNavigateToSettings = {
+                                navController.navigate("settings")
                             },
                             onDisconnect = {
                                 WatchBridgeService.stateMachine?.disconnect()
@@ -60,15 +88,27 @@ class MainActivity : ComponentActivity() {
                     }
                     composable("pairing") {
                         PairingScreen(
-                            bleScanner = bleScanner,
-                            onDeviceSelected = { device ->
+                            onStartAdvertising = {
                                 ensureServiceRunning()
-                                WatchBridgeService.stateMachine?.connectTo(device)
+                                val intent = Intent(
+                                    this@MainActivity,
+                                    WatchBridgeService::class.java
+                                ).apply {
+                                    action = WatchBridgeService.ACTION_START_ADVERTISING
+                                }
+                                startForegroundService(intent)
+                            },
+                            onDeviceSelected = { device ->
+                                connectToDevice(device)
                             },
                             onConnected = {
                                 navController.popBackStack()
                             }
                         )
+                    }
+                    composable("settings") {
+                        val settings = WatchBridgeService.settingsManager ?: localSettings
+                        SettingsScreen(settings = settings)
                     }
                 }
             }
@@ -77,21 +117,25 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        // Auto-reconnect to bonded device if service is running
         if (WatchBridgeService.isRunning) {
             val sm = WatchBridgeService.stateMachine
-            if (sm?.state?.value == com.watchbridge.ble.ConnectionStateMachine.State.IDLE) {
+            if (sm?.state?.value == ConnectionStateMachine.State.IDLE) {
                 sm.autoConnectToBonded()
             }
         }
     }
 
     private fun checkPermissions() {
-        val required = arrayOf(
+        val required = mutableListOf(
             Manifest.permission.BLUETOOTH_SCAN,
             Manifest.permission.BLUETOOTH_CONNECT,
-            Manifest.permission.BLUETOOTH_ADVERTISE
+            Manifest.permission.BLUETOOTH_ADVERTISE,
+            Manifest.permission.ACCESS_FINE_LOCATION
         )
+        // POST_NOTIFICATIONS required on Android 13+
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            required.add(Manifest.permission.POST_NOTIFICATIONS)
+        }
 
         val missing = required.filter {
             ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
@@ -106,19 +150,44 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun startBridgeService() {
-        if (!WatchBridgeService.isRunning) {
+        if (!WatchBridgeService.isRunning && localSettings.isOnboardingComplete) {
             ensureServiceRunning()
-            // Try auto-connect to bonded device
             WatchBridgeService.stateMachine?.autoConnectToBonded()
+        }
+    }
+
+    private fun connectToDevice(device: BluetoothDevice) {
+        Log.i(TAG, "connectToDevice: ${device.address}")
+        ensureServiceRunning()
+
+        // Service may need a moment to initialize — poll until ready
+        CoroutineScope(Dispatchers.Main).launch {
+            var attempts = 0
+            while (WatchBridgeService.stateMachine == null && attempts < 20) {
+                delay(100)
+                attempts++
+            }
+            val sm = WatchBridgeService.stateMachine
+            if (sm != null) {
+                Log.i(TAG, "Service ready after ${attempts * 100}ms, connecting...")
+                sm.connectTo(device)
+            } else {
+                Log.e(TAG, "Service state machine still null after 2s!")
+            }
         }
     }
 
     private fun ensureServiceRunning() {
         if (!WatchBridgeService.isRunning) {
+            Log.i(TAG, "Starting WatchBridgeService")
             val intent = Intent(this, WatchBridgeService::class.java).apply {
                 action = WatchBridgeService.ACTION_START
             }
             startForegroundService(intent)
         }
+    }
+
+    companion object {
+        private const val TAG = "MainActivity"
     }
 }

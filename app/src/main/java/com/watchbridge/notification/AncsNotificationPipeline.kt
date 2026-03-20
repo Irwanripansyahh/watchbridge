@@ -1,5 +1,7 @@
 package com.watchbridge.notification
 
+import android.app.NotificationManager
+import android.content.Context
 import android.util.Log
 import com.watchbridge.ancs.AncsActionHandler
 import com.watchbridge.ancs.AncsAttributeParser
@@ -7,6 +9,7 @@ import com.watchbridge.ancs.AncsConstants
 import com.watchbridge.ancs.AncsNotificationEvent
 import com.watchbridge.ancs.AncsSessionManager
 import com.watchbridge.ble.BleConnectionManager
+import com.watchbridge.settings.SettingsManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -15,47 +18,38 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
- * Orchestrates the full notification pipeline:
- * 1. Receives Notification Source events from AncsSessionManager
- * 2. Queues GetNotificationAttributes requests (rate-limited)
- * 3. Processes Data Source responses (attribute fragments)
- * 4. Resolves app names via AppNameResolver
- * 5. Renders notifications via NotificationRenderer / CallNotificationHandler
- * 6. Handles notification removal
+ * Orchestrates the full notification pipeline with filtering, DND respect,
+ * and category-based settings.
  */
 class AncsNotificationPipeline(
+    private val context: Context,
     private val connectionManager: BleConnectionManager,
     private val sessionManager: AncsSessionManager,
     private val renderer: NotificationRenderer,
     private val callHandler: CallNotificationHandler,
-    private val appNameResolver: AppNameResolver
+    private val appNameResolver: AppNameResolver,
+    private val settings: SettingsManager
 ) {
 
     companion object {
         private const val TAG = "AncsNotifPipeline"
-        private const val REQUEST_DELAY_MS = 100L // Rate limit between Control Point writes
+        private const val REQUEST_DELAY_MS = 100L
     }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-
-    /** Queue of notification UIDs waiting for attribute fetch. */
     private val attributeRequestQueue = Channel<AncsNotificationEvent>(Channel.BUFFERED)
-
-    /** Map of UID -> event for pending attribute responses. */
     private val pendingEvents = mutableMapOf<UInt, AncsNotificationEvent>()
 
-    /**
-     * Start the pipeline. Call after ANCS session is active.
-     */
+    private val notificationManager =
+        context.getSystemService(NotificationManager::class.java)
+
     fun start() {
-        // Process Notification Source events
         scope.launch {
             sessionManager.events.collect { event ->
                 handleEvent(event)
             }
         }
 
-        // Process attribute request queue with rate limiting
         scope.launch {
             for (event in attributeRequestQueue) {
                 requestAttributes(event)
@@ -63,7 +57,6 @@ class AncsNotificationPipeline(
             }
         }
 
-        // Wire up notification action callbacks
         NotificationActionReceiver.onAction = { uid, actionId ->
             performAction(uid, actionId)
         }
@@ -71,9 +64,6 @@ class AncsNotificationPipeline(
         Log.i(TAG, "Notification pipeline started")
     }
 
-    /**
-     * Handle a Data Source fragment. Called by the session manager's data callback.
-     */
     fun handleDataSourceResponse(result: Any?) {
         when (result) {
             is AncsAttributeParser.NotificationAttributes -> {
@@ -88,11 +78,16 @@ class AncsNotificationPipeline(
     private fun handleEvent(event: AncsNotificationEvent) {
         when {
             event.isAdded || event.isModified -> {
-                // Show placeholder immediately
+                // Apply filters
+                if (!shouldShowNotification(event)) {
+                    Log.d(TAG, "Filtered out: uid=${event.notificationUid} cat=${event.categoryName}")
+                    return
+                }
+
+                // Show placeholder immediately (except calls)
                 if (!callHandler.isCallCategory(event.categoryId)) {
                     renderer.showBasicNotification(event)
                 }
-                // Queue attribute fetch
                 pendingEvents[event.notificationUid] = event
                 attributeRequestQueue.trySend(event)
             }
@@ -100,13 +95,48 @@ class AncsNotificationPipeline(
                 pendingEvents.remove(event.notificationUid)
                 renderer.cancelNotification(event.notificationUid)
 
-                // Also cancel call notifications if this was a call
                 when (event.categoryId) {
                     AncsConstants.CATEGORY_INCOMING_CALL -> callHandler.cancelIncomingCall()
                     AncsConstants.CATEGORY_ACTIVE_CALL -> callHandler.cancelActiveCall()
                 }
             }
         }
+    }
+
+    /**
+     * Check if a notification should be shown based on current settings.
+     */
+    private fun shouldShowNotification(event: AncsNotificationEvent): Boolean {
+        // Respect DND / Theater mode
+        if (settings.respectDnd.value && isDndActive()) {
+            // Always let calls through in DND
+            if (event.categoryId != AncsConstants.CATEGORY_INCOMING_CALL) {
+                return false
+            }
+        }
+
+        // Filter silent notifications
+        if (event.isSilent && !settings.showSilent.value) {
+            return false
+        }
+
+        // Filter pre-existing notifications
+        if (event.isPreExisting && !settings.showPreExisting.value) {
+            return false
+        }
+
+        // Check category filter
+        if (!settings.isCategoryEnabled(event.categoryId)) {
+            return false
+        }
+
+        return true
+    }
+
+    private fun isDndActive(): Boolean {
+        val filter = notificationManager.currentInterruptionFilter
+        return filter == NotificationManager.INTERRUPTION_FILTER_NONE ||
+            filter == NotificationManager.INTERRUPTION_FILTER_ALARMS
     }
 
     private fun requestAttributes(event: AncsNotificationEvent) {
@@ -124,11 +154,9 @@ class AncsNotificationPipeline(
             return
         }
 
-        // Resolve app name
         val appId = attrs.appIdentifier
         val appDisplayName = if (appId != null) {
             if (appNameResolver.needsRequest(appId)) {
-                // Request app display name
                 appNameResolver.markPending(appId)
                 val cmd = AncsActionHandler.buildGetAppAttributes(appId)
                 connectionManager.writeControlPoint(cmd)
@@ -136,7 +164,6 @@ class AncsNotificationPipeline(
             appNameResolver.getDisplayName(appId)
         } else null
 
-        // Render the full notification
         if (callHandler.isCallCategory(event.categoryId)) {
             when (event.categoryId) {
                 AncsConstants.CATEGORY_INCOMING_CALL ->
@@ -160,18 +187,12 @@ class AncsNotificationPipeline(
         }
     }
 
-    /**
-     * Perform an ANCS action (accept/reject/dismiss) from a notification button.
-     */
     private fun performAction(notificationUid: UInt, actionId: Byte) {
         val command = AncsActionHandler.buildPerformAction(notificationUid, actionId)
         connectionManager.writeControlPoint(command)
         Log.i(TAG, "Performed action $actionId on uid=$notificationUid")
     }
 
-    /**
-     * Clean up on disconnect.
-     */
     fun onDisconnected() {
         pendingEvents.clear()
         renderer.cancelAll()

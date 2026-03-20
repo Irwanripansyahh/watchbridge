@@ -13,10 +13,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -26,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
 import androidx.wear.compose.foundation.lazy.items
 import androidx.wear.compose.material.Button
+import androidx.wear.compose.material.ButtonDefaults
 import androidx.wear.compose.material.Chip
 import androidx.wear.compose.material.ChipDefaults
 import androidx.wear.compose.material.CircularProgressIndicator
@@ -35,13 +32,11 @@ import com.watchbridge.ble.BleScanner
 import com.watchbridge.ble.ConnectionStateMachine
 import com.watchbridge.service.WatchBridgeService
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.onCompletion
 
 @SuppressLint("MissingPermission")
 @Composable
 fun PairingScreen(
-    bleScanner: BleScanner,
+    onStartAdvertising: () -> Unit,
     onDeviceSelected: (BluetoothDevice) -> Unit,
     onConnected: () -> Unit
 ) {
@@ -53,8 +48,14 @@ fun PairingScreen(
         ?: kotlinx.coroutines.flow.MutableStateFlow(ConnectionStateMachine.State.IDLE))
         .collectAsState()
 
-    val devices = remember { mutableStateListOf<BleScanner.ScannedDevice>() }
-    var isScanning by remember { mutableStateOf(false) }
+    // Show previously bonded devices
+    val bondedDevices = adapter?.bondedDevices?.map { dev ->
+        BleScanner.ScannedDevice(
+            name = dev.name ?: "Bonded Device",
+            address = dev.address,
+            rssi = 0
+        )
+    } ?: emptyList()
 
     // Navigate back when connection is ready
     LaunchedEffect(smState) {
@@ -64,35 +65,13 @@ fun PairingScreen(
         }
     }
 
-    // Auto-start scan
-    LaunchedEffect(Unit) {
-        isScanning = true
-        devices.clear()
-        bleScanner.scan()
-            .catch { isScanning = false }
-            .onCompletion { isScanning = false }
-            .collect { device ->
-                if (device.name != null && devices.none { it.address == device.address }) {
-                    devices.add(device)
-                }
-            }
-    }
-
-    // Stop scan after 15 seconds
-    LaunchedEffect(isScanning) {
-        if (isScanning) {
-            delay(15_000)
-            isScanning = false
-        }
-    }
-
     ScalingLazyColumn(
         modifier = Modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         item {
             Text(
-                text = "Find iPhone",
+                text = "Pair with iPhone",
                 style = MaterialTheme.typography.title3,
                 color = MaterialTheme.colors.primary,
                 textAlign = TextAlign.Center,
@@ -100,15 +79,115 @@ fun PairingScreen(
             )
         }
 
-        when {
-            smState == ConnectionStateMachine.State.CONNECTING ||
-            smState == ConnectionStateMachine.State.CONNECTED -> {
+        // Previously paired devices — use existing outbound connectTo() path
+        if (bondedDevices.isNotEmpty()) {
+            item {
+                Text(
+                    text = "Previously Paired",
+                    style = MaterialTheme.typography.caption1,
+                    color = MaterialTheme.colors.primary,
+                    modifier = Modifier.padding(top = 4.dp, bottom = 2.dp)
+                )
+            }
+            items(bondedDevices) { device ->
+                Chip(
+                    onClick = {
+                        val btDevice = adapter.getRemoteDevice(device.address)
+                        onDeviceSelected(btDevice)
+                    },
+                    label = {
+                        Text(
+                            text = device.name ?: "Bonded Device",
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    },
+                    secondaryLabel = {
+                        Text(
+                            text = device.address,
+                            style = MaterialTheme.typography.caption3
+                        )
+                    },
+                    colors = ChipDefaults.primaryChipColors(),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+
+            item { Spacer(Modifier.height(8.dp)) }
+        }
+
+        when (smState) {
+            ConnectionStateMachine.State.ADVERTISING -> {
+                // Advertising — show instructions for pairing from iPhone
+                item {
+                    Spacer(Modifier.height(8.dp))
+                    CircularProgressIndicator()
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = "Ready to Pair",
+                        style = MaterialTheme.typography.body1,
+                        textAlign = TextAlign.Center,
+                        color = MaterialTheme.colors.primary
+                    )
+                }
+                item {
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = "On your iPhone:",
+                        style = MaterialTheme.typography.body2,
+                        textAlign = TextAlign.Center,
+                        color = MaterialTheme.colors.onSurface
+                    )
+                }
+                item {
+                    Text(
+                        text = "1. Open Settings",
+                        style = MaterialTheme.typography.caption1,
+                        textAlign = TextAlign.Center,
+                        color = MaterialTheme.colors.onSurfaceVariant
+                    )
+                }
+                item {
+                    Text(
+                        text = "2. Tap Bluetooth",
+                        style = MaterialTheme.typography.caption1,
+                        textAlign = TextAlign.Center,
+                        color = MaterialTheme.colors.onSurfaceVariant
+                    )
+                }
+                item {
+                    Text(
+                        text = "3. Tap this watch to pair",
+                        style = MaterialTheme.typography.caption1,
+                        textAlign = TextAlign.Center,
+                        color = MaterialTheme.colors.onSurfaceVariant
+                    )
+                }
+                item {
+                    Spacer(Modifier.height(12.dp))
+                    Button(
+                        onClick = {
+                            val adv = WatchBridgeService.advertiser
+                            val sm = WatchBridgeService.stateMachine
+                            if (adv != null && sm != null) {
+                                sm.stopAdvertising(adv)
+                            }
+                        },
+                        colors = ButtonDefaults.secondaryButtonColors()
+                    ) {
+                        Text("Cancel")
+                    }
+                }
+            }
+
+            ConnectionStateMachine.State.CONNECTING,
+            ConnectionStateMachine.State.CONNECTED -> {
                 item {
                     Spacer(Modifier.height(16.dp))
                     CircularProgressIndicator()
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        text = "Connecting...\nAccept pairing on iPhone",
+                        text = "Connecting...\nAccept pairing on iPhone\nif prompted",
                         style = MaterialTheme.typography.body2,
                         textAlign = TextAlign.Center,
                         color = MaterialTheme.colors.onSurfaceVariant
@@ -116,59 +195,19 @@ fun PairingScreen(
                 }
             }
 
-            isScanning && devices.isEmpty() -> {
-                item {
-                    Spacer(Modifier.height(16.dp))
-                    CircularProgressIndicator()
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        text = "Scanning...",
-                        style = MaterialTheme.typography.body2,
-                        color = MaterialTheme.colors.onSurfaceVariant
-                    )
-                }
-            }
-
             else -> {
-                if (devices.isEmpty()) {
-                    item {
-                        Spacer(Modifier.height(8.dp))
-                        Text(
-                            text = "No devices found",
-                            style = MaterialTheme.typography.body2,
-                            color = MaterialTheme.colors.onSurfaceVariant
-                        )
-                        Spacer(Modifier.height(8.dp))
-                        Button(onClick = {
-                            devices.clear()
-                            isScanning = true
-                        }) {
-                            Text("Retry")
-                        }
+                // Initial state — show "Start Pairing" button
+                item {
+                    Spacer(Modifier.height(12.dp))
+                    Button(onClick = onStartAdvertising) {
+                        Text("Start Pairing")
                     }
-                }
-
-                items(devices) { device ->
-                    Chip(
-                        onClick = {
-                            val btDevice = adapter.getRemoteDevice(device.address)
-                            onDeviceSelected(btDevice)
-                        },
-                        label = {
-                            Text(
-                                text = device.name ?: "Unknown",
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        },
-                        secondaryLabel = {
-                            Text(
-                                text = "${device.address} (${device.rssi} dBm)",
-                                style = MaterialTheme.typography.caption3
-                            )
-                        },
-                        colors = ChipDefaults.secondaryChipColors(),
-                        modifier = Modifier.fillMaxWidth()
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = "Makes this watch visible\nto your iPhone",
+                        style = MaterialTheme.typography.caption2,
+                        textAlign = TextAlign.Center,
+                        color = MaterialTheme.colors.onSurfaceVariant
                     )
                 }
             }

@@ -37,10 +37,12 @@ class ConnectionStateMachine(
         private const val BACKOFF_MULTIPLIER = 2.0
         private const val MAX_RECONNECT_ATTEMPTS = 20
         private const val QUICK_RECONNECT_THRESHOLD_MS = 5_000L
+        private const val BOND_GRACE_PERIOD_MS = 35_000L
     }
 
     enum class State {
         IDLE,
+        ADVERTISING,
         CONNECTING,
         CONNECTED,
         READY,
@@ -123,6 +125,36 @@ class ConnectionStateMachine(
         autoReconnectEnabled = true
     }
 
+    /**
+     * Start BLE advertising for first-time pairing.
+     * When iPhone connects, transitions to CONNECTING and initiates GATT client connection.
+     */
+    fun startAdvertisingForPairing(advertiser: BleAdvertiser) {
+        _state.value = State.ADVERTISING
+        autoReconnectEnabled = true
+        advertiser.onDeviceConnected = { device ->
+            targetDevice = device
+            reconnectAttempt = 0
+            currentBackoffMs = INITIAL_BACKOFF_MS
+            _state.value = State.CONNECTING
+            connectionManager.connectAfterIncoming(device)
+        }
+        advertiser.startAdvertising()
+        Log.i(TAG, "Started advertising for pairing")
+    }
+
+    /**
+     * Stop advertising (user cancelled pairing).
+     */
+    fun stopAdvertising(advertiser: BleAdvertiser) {
+        advertiser.stopAdvertising()
+        advertiser.onDeviceConnected = null
+        if (_state.value == State.ADVERTISING) {
+            _state.value = State.IDLE
+        }
+        Log.i(TAG, "Stopped advertising")
+    }
+
     private fun handleConnectionStateChange(connState: BleConnectionManager.ConnectionState) {
         when (connState) {
             BleConnectionManager.ConnectionState.CONNECTING -> {
@@ -130,9 +162,17 @@ class ConnectionStateMachine(
             }
 
             BleConnectionManager.ConnectionState.CONNECTED,
-            BleConnectionManager.ConnectionState.DISCOVERING_SERVICES -> {
+            BleConnectionManager.ConnectionState.DISCOVERING_SERVICES,
+            BleConnectionManager.ConnectionState.SUBSCRIBING -> {
                 _state.value = State.CONNECTED
                 lastConnectedTimestamp = System.currentTimeMillis()
+            }
+
+            BleConnectionManager.ConnectionState.BONDING -> {
+                // Don't trigger reconnect during bonding — user may be accepting on iPhone
+                _state.value = State.CONNECTED
+                lastConnectedTimestamp = System.currentTimeMillis()
+                Log.i(TAG, "Bonding in progress — suppressing auto-reconnect")
             }
 
             BleConnectionManager.ConnectionState.READY -> {
@@ -145,19 +185,25 @@ class ConnectionStateMachine(
             }
 
             BleConnectionManager.ConnectionState.DISCONNECTED -> {
-                val wasReady = _state.value == State.READY || _state.value == State.CONNECTED
+                val previousState = _state.value
+                val wasReady = previousState == State.READY || previousState == State.CONNECTED
                 _state.value = State.DISCONNECTED
 
-                if (wasReady) {
+                // Don't auto-reconnect if disconnect happened during bonding
+                // (user rejected pairing or bond timed out)
+                val timeSinceConnected = System.currentTimeMillis() - lastConnectedTimestamp
+                val wasBonding = timeSinceConnected < BOND_GRACE_PERIOD_MS && previousState == State.CONNECTED
+
+                if (wasBonding) {
+                    Log.i(TAG, "Disconnect during bonding phase — not auto-reconnecting")
                     onDisconnected?.invoke()
-                    val timeSinceConnected = System.currentTimeMillis() - lastConnectedTimestamp
+                } else if (wasReady) {
+                    onDisconnected?.invoke()
 
                     if (timeSinceConnected < QUICK_RECONNECT_THRESHOLD_MS) {
-                        // Brief disconnect — try quick reconnect
                         Log.i(TAG, "Quick disconnect detected (${timeSinceConnected}ms), reconnecting immediately")
                         scheduleReconnect(delayMs = 500)
                     } else {
-                        // Longer disconnect — clear session and reconnect with backoff
                         Log.i(TAG, "Disconnect after ${timeSinceConnected}ms, clearing session")
                         onSessionReset?.invoke()
                         scheduleReconnect()

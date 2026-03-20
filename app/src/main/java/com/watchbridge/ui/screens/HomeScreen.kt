@@ -16,8 +16,10 @@ import androidx.compose.ui.unit.dp
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
 import androidx.wear.compose.foundation.lazy.items
 import androidx.wear.compose.material.Button
+import androidx.wear.compose.material.ButtonDefaults
 import androidx.wear.compose.material.Chip
 import androidx.wear.compose.material.ChipDefaults
+import androidx.wear.compose.material.CompactChip
 import androidx.wear.compose.material.MaterialTheme
 import androidx.wear.compose.material.Text
 import com.watchbridge.ble.ConnectionStateMachine
@@ -26,6 +28,7 @@ import com.watchbridge.service.WatchBridgeService
 @Composable
 fun HomeScreen(
     onNavigateToPairing: () -> Unit,
+    onNavigateToSettings: () -> Unit,
     onDisconnect: () -> Unit
 ) {
     val sm = WatchBridgeService.stateMachine
@@ -58,6 +61,7 @@ fun HomeScreen(
         item {
             val (statusText, statusColor) = when (smState) {
                 ConnectionStateMachine.State.IDLE -> "Not Connected" to Color.Gray
+                ConnectionStateMachine.State.ADVERTISING -> "Advertising..." to Color.Yellow
                 ConnectionStateMachine.State.CONNECTING -> "Connecting..." to Color.Yellow
                 ConnectionStateMachine.State.CONNECTED -> "Discovering..." to Color.Yellow
                 ConnectionStateMachine.State.READY -> "Connected" to Color(0xFF4FC3F7)
@@ -105,7 +109,6 @@ fun HomeScreen(
                     }
                 }
                 ConnectionStateMachine.State.DISCONNECTED -> {
-                    // Auto-reconnect is active, but offer manual connect
                     Button(onClick = onNavigateToPairing) {
                         Text("New Device")
                     }
@@ -118,6 +121,16 @@ fun HomeScreen(
                     )
                 }
             }
+        }
+
+        // Settings button
+        item {
+            Spacer(Modifier.height(4.dp))
+            CompactChip(
+                onClick = onNavigateToSettings,
+                label = { Text("Settings") },
+                colors = ChipDefaults.secondaryChipColors()
+            )
         }
 
         // Event log
