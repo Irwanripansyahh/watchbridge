@@ -46,8 +46,8 @@ object AncsActionHandler {
         if (requestMessage) addWithLength(AncsConstants.ATTR_MESSAGE)
         if (requestDate) attrs.add(byteArrayOf(AncsConstants.ATTR_DATE))
         if (requestActionLabels) {
-            addWithLength(AncsConstants.ATTR_POSITIVE_ACTION_LABEL)
-            addWithLength(AncsConstants.ATTR_NEGATIVE_ACTION_LABEL)
+            attrs.add(byteArrayOf(AncsConstants.ATTR_POSITIVE_ACTION_LABEL))
+            attrs.add(byteArrayOf(AncsConstants.ATTR_NEGATIVE_ACTION_LABEL))
         }
 
         val attrBytes = attrs.fold(byteArrayOf()) { acc, bytes -> acc + bytes }

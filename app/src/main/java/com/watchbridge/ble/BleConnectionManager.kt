@@ -355,20 +355,12 @@ class BleConnectionManager(
     }
 
     fun writeControlPoint(data: ByteArray) {
-        val char = controlPointChar
-        if (char == null) {
+        val char = controlPointChar ?: run {
             Log.e(TAG, "Control Point characteristic not available")
             return
         }
-
-        writeCharacteristic(
-            char,
-            data,
-            BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
-        )
-            .fail { _, status ->
-                Log.e(TAG, "Control Point write failed: $status")
-            }
+        writeCharacteristic(char, data, BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT)
+            .fail { _, status -> Log.e(TAG, "Control Point write failed: $status") }
             .enqueue()
     }
 
