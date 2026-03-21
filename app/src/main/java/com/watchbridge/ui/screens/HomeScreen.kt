@@ -1,29 +1,51 @@
 package com.watchbridge.ui.screens
 
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.wear.compose.foundation.lazy.AutoCenteringParams
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
-import androidx.wear.compose.foundation.lazy.items
-import androidx.wear.compose.material.Button
-import androidx.wear.compose.material.ButtonDefaults
+import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
 import androidx.wear.compose.material.Chip
 import androidx.wear.compose.material.ChipDefaults
-import androidx.wear.compose.material.CompactChip
+import androidx.wear.compose.material.Icon
 import androidx.wear.compose.material.MaterialTheme
 import androidx.wear.compose.material.Text
+import com.watchbridge.R
 import com.watchbridge.ble.ConnectionStateMachine
 import com.watchbridge.service.WatchBridgeService
+import com.watchbridge.ui.components.WatchBridgeScaffold
+import com.watchbridge.ui.theme.StatusConnected
+import com.watchbridge.ui.theme.StatusConnecting
+import com.watchbridge.ui.theme.StatusDisconnected
+import com.watchbridge.ui.theme.StatusIdle
+import com.watchbridge.ui.theme.SurfaceCard
 
 @Composable
 fun HomeScreen(
@@ -38,126 +60,191 @@ fun HomeScreen(
         ?: kotlinx.coroutines.flow.MutableStateFlow(ConnectionStateMachine.State.IDLE))
         .collectAsState()
 
-    val eventLog by (session?.eventLog
-        ?: kotlinx.coroutines.flow.MutableStateFlow(emptyList()))
-        .collectAsState()
+    val listState = rememberScalingLazyListState()
 
-    ScalingLazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        // Title
-        item {
-            Text(
-                text = "WatchBridge",
-                style = MaterialTheme.typography.title3,
-                color = MaterialTheme.colors.primary,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(top = 24.dp)
-            )
-        }
-
-        // Connection status
-        item {
-            val (statusText, statusColor) = when (smState) {
-                ConnectionStateMachine.State.IDLE -> "Not Connected" to Color.Gray
-                ConnectionStateMachine.State.ADVERTISING -> "Advertising..." to Color.Yellow
-                ConnectionStateMachine.State.CONNECTING -> "Connecting..." to Color.Yellow
-                ConnectionStateMachine.State.CONNECTED -> "Discovering..." to Color.Yellow
-                ConnectionStateMachine.State.READY -> "Connected" to Color(0xFF4FC3F7)
-                ConnectionStateMachine.State.DISCONNECTED -> "Disconnected" to Color(0xFFEF5350)
-                ConnectionStateMachine.State.WAITING_TO_RECONNECT -> "Reconnecting soon..." to Color(0xFFFFB74D)
-                ConnectionStateMachine.State.RECONNECTING -> "Reconnecting..." to Color.Yellow
-                ConnectionStateMachine.State.FAILED -> "Connection Failed" to Color(0xFFEF5350)
-            }
-
-            Text(
-                text = statusText,
-                style = MaterialTheme.typography.body1,
-                color = statusColor,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(vertical = 4.dp)
-            )
-        }
-
-        // Active notifications count
-        item {
-            val activeCount = session?.getActiveUidCount() ?: 0
-            if (activeCount > 0) {
+    WatchBridgeScaffold(listState = listState) {
+        ScalingLazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            state = listState,
+            horizontalAlignment = Alignment.CenterHorizontally,
+            contentPadding = PaddingValues(top = 28.dp, start = 10.dp, end = 10.dp, bottom = 48.dp),
+            autoCentering = AutoCenteringParams()
+        ) {
+            // Title
+            item {
                 Text(
-                    text = "$activeCount active notification${if (activeCount != 1) "s" else ""}",
-                    style = MaterialTheme.typography.caption3,
-                    color = MaterialTheme.colors.onSurfaceVariant,
+                    text = "WatchBridge",
+                    style = MaterialTheme.typography.title3,
+                    color = MaterialTheme.colors.primary,
                     textAlign = TextAlign.Center
                 )
             }
-        }
 
-        // Action buttons
-        item {
-            Spacer(Modifier.height(8.dp))
-            when (smState) {
-                ConnectionStateMachine.State.IDLE,
-                ConnectionStateMachine.State.FAILED -> {
-                    Button(onClick = onNavigateToPairing) {
-                        Text("Connect")
-                    }
-                }
-                ConnectionStateMachine.State.READY -> {
-                    Button(onClick = onDisconnect) {
-                        Text("Disconnect")
-                    }
-                }
-                ConnectionStateMachine.State.DISCONNECTED -> {
-                    Button(onClick = onNavigateToPairing) {
-                        Text("New Device")
-                    }
-                }
-                else -> {
-                    Text(
-                        text = "Please wait...",
-                        style = MaterialTheme.typography.caption2,
-                        color = MaterialTheme.colors.onSurfaceVariant
-                    )
-                }
-            }
-        }
-
-        // Settings button
-        item {
-            Spacer(Modifier.height(4.dp))
-            CompactChip(
-                onClick = onNavigateToSettings,
-                label = { Text("Settings") },
-                colors = ChipDefaults.secondaryChipColors()
-            )
-        }
-
-        // Event log
-        if (eventLog.isNotEmpty()) {
+            // Status card
             item {
                 Spacer(Modifier.height(8.dp))
-                Text(
-                    text = "Recent Events",
-                    style = MaterialTheme.typography.caption1,
-                    color = MaterialTheme.colors.primary
-                )
+                StatusCard(smState = smState, activeCount = session?.getActiveUidCount() ?: 0)
             }
 
-            items(eventLog.reversed()) { entry ->
+            // Action button
+            item {
+                Spacer(Modifier.height(8.dp))
+                ActionChip(smState = smState, onNavigateToPairing = onNavigateToPairing, onDisconnect = onDisconnect)
+            }
+
+            // Settings chip
+            item {
+                Spacer(Modifier.height(4.dp))
                 Chip(
-                    onClick = { },
-                    label = {
-                        Text(
-                            text = entry,
-                            style = MaterialTheme.typography.caption3,
-                            maxLines = 2
+                    onClick = onNavigateToSettings,
+                    label = { Text("Settings") },
+                    icon = {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_settings),
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
                         )
                     },
                     colors = ChipDefaults.secondaryChipColors(),
                     modifier = Modifier.fillMaxWidth()
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun StatusCard(smState: ConnectionStateMachine.State, activeCount: Int) {
+    val (statusText, statusColor, isPulsing) = when (smState) {
+        ConnectionStateMachine.State.IDLE -> Triple("Not Connected", StatusIdle, false)
+        ConnectionStateMachine.State.ADVERTISING -> Triple("Advertising...", StatusConnecting, true)
+        ConnectionStateMachine.State.CONNECTING -> Triple("Connecting...", StatusConnecting, true)
+        ConnectionStateMachine.State.CONNECTED -> Triple("Discovering...", StatusConnecting, true)
+        ConnectionStateMachine.State.READY -> Triple("Connected", StatusConnected, false)
+        ConnectionStateMachine.State.DISCONNECTED -> Triple("Disconnected", StatusDisconnected, false)
+        ConnectionStateMachine.State.WAITING_TO_RECONNECT -> Triple("Reconnecting soon...", Color(0xFFFFB74D), true)
+        ConnectionStateMachine.State.RECONNECTING -> Triple("Reconnecting...", StatusConnecting, true)
+        ConnectionStateMachine.State.FAILED -> Triple("Connection Failed", StatusDisconnected, false)
+    }
+
+    val dotAlpha = if (isPulsing) {
+        val transition = rememberInfiniteTransition(label = "pulse")
+        val alpha by transition.animateFloat(
+            initialValue = 0.3f,
+            targetValue = 1.0f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(800),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "dotAlpha"
+        )
+        alpha
+    } else {
+        1f
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(SurfaceCard, RoundedCornerShape(16.dp))
+            .padding(horizontal = 14.dp, vertical = 10.dp)
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(8.dp)
+                        .alpha(dotAlpha)
+                        .background(statusColor, CircleShape)
+                )
+                Text(
+                    text = statusText,
+                    style = MaterialTheme.typography.body1,
+                    color = statusColor,
+                    modifier = Modifier.padding(start = 8.dp)
+                )
+            }
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = if (activeCount > 0)
+                    "$activeCount active notification${if (activeCount != 1) "s" else ""}"
+                else
+                    "No notifications",
+                style = MaterialTheme.typography.caption3,
+                color = MaterialTheme.colors.onSurfaceVariant,
+                textAlign = TextAlign.Center
+            )
+        }
+    }
+}
+
+@Composable
+private fun ActionChip(
+    smState: ConnectionStateMachine.State,
+    onNavigateToPairing: () -> Unit,
+    onDisconnect: () -> Unit
+) {
+    when (smState) {
+        ConnectionStateMachine.State.IDLE,
+        ConnectionStateMachine.State.FAILED -> {
+            Chip(
+                onClick = onNavigateToPairing,
+                label = { Text("Connect") },
+                icon = {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_bluetooth),
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                },
+                colors = ChipDefaults.primaryChipColors(),
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+        ConnectionStateMachine.State.READY -> {
+            Chip(
+                onClick = onDisconnect,
+                label = { Text("Disconnect") },
+                icon = {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_bluetooth_disabled),
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                },
+                colors = ChipDefaults.primaryChipColors(),
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+        ConnectionStateMachine.State.DISCONNECTED -> {
+            Chip(
+                onClick = onNavigateToPairing,
+                label = { Text("Reconnect") },
+                icon = {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_bluetooth),
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                },
+                colors = ChipDefaults.primaryChipColors(),
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+        else -> {
+            Text(
+                text = "Please wait...",
+                style = MaterialTheme.typography.caption2,
+                color = MaterialTheme.colors.onSurfaceVariant,
+                textAlign = TextAlign.Center
+            )
         }
     }
 }

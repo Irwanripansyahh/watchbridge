@@ -7,17 +7,28 @@ import android.content.IntentFilter
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.wear.compose.material.Button
 import androidx.wear.compose.material.ButtonDefaults
+import androidx.wear.compose.material.Icon
 import androidx.wear.compose.material.MaterialTheme
 import androidx.wear.compose.material.Text
+import com.watchbridge.R
 import com.watchbridge.ancs.AncsConstants
 import com.watchbridge.ui.theme.WatchBridgeTheme
 
@@ -88,6 +99,17 @@ private fun IncomingCallScreen(
     onAccept: () -> Unit,
     onDecline: () -> Unit
 ) {
+    val transition = rememberInfiniteTransition(label = "ring")
+    val ringAlpha by transition.animateFloat(
+        initialValue = 0.0f,
+        targetValue = 0.6f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(800),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "ringAlpha"
+    )
+
     Box(
         modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
@@ -101,11 +123,22 @@ private fun IncomingCallScreen(
                 style = MaterialTheme.typography.caption1,
                 color = MaterialTheme.colors.onSurfaceVariant
             )
-            Text(
-                text = callerName,
-                style = MaterialTheme.typography.title2,
-                textAlign = TextAlign.Center
-            )
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .border(
+                        width = 2.dp,
+                        color = MaterialTheme.colors.primary.copy(alpha = ringAlpha),
+                        shape = CircleShape
+                    )
+                    .padding(12.dp)
+            ) {
+                Text(
+                    text = callerName,
+                    style = MaterialTheme.typography.title2,
+                    textAlign = TextAlign.Center
+                )
+            }
             Spacer(modifier = Modifier.height(8.dp))
             Row(
                 horizontalArrangement = Arrangement.spacedBy(24.dp)
@@ -116,9 +149,13 @@ private fun IncomingCallScreen(
                     colors = ButtonDefaults.buttonColors(
                         backgroundColor = Color(0xFFD32F2F)
                     ),
-                    modifier = Modifier.size(48.dp)
+                    modifier = Modifier.size(56.dp)
                 ) {
-                    Text("✕", style = MaterialTheme.typography.title3)
+                    Icon(
+                        painter = painterResource(R.drawable.ic_call_decline),
+                        contentDescription = "Decline",
+                        modifier = Modifier.size(24.dp)
+                    )
                 }
                 // Accept button (green)
                 Button(
@@ -126,9 +163,13 @@ private fun IncomingCallScreen(
                     colors = ButtonDefaults.buttonColors(
                         backgroundColor = Color(0xFF388E3C)
                     ),
-                    modifier = Modifier.size(48.dp)
+                    modifier = Modifier.size(56.dp)
                 ) {
-                    Text("✓", style = MaterialTheme.typography.title3)
+                    Icon(
+                        painter = painterResource(R.drawable.ic_call_accept),
+                        contentDescription = "Accept",
+                        modifier = Modifier.size(24.dp)
+                    )
                 }
             }
         }

@@ -7,17 +7,23 @@ import android.content.IntentFilter
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.wear.compose.material.Button
 import androidx.wear.compose.material.ButtonDefaults
+import androidx.wear.compose.material.Icon
 import androidx.wear.compose.material.MaterialTheme
 import androidx.wear.compose.material.Text
+import com.watchbridge.R
 import com.watchbridge.ancs.AncsConstants
 import com.watchbridge.ui.theme.WatchBridgeTheme
 import kotlinx.coroutines.delay
@@ -113,11 +119,22 @@ private fun OngoingCallScreen(
                 style = MaterialTheme.typography.title2,
                 textAlign = TextAlign.Center
             )
-            Text(
-                text = timerText,
-                style = MaterialTheme.typography.body1,
-                color = MaterialTheme.colors.onSurfaceVariant
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(8.dp)
+                        .background(Color(0xFF4CAF50), CircleShape)
+                )
+                Text(
+                    text = timerText,
+                    style = MaterialTheme.typography.body1.copy(fontFamily = FontFamily.Monospace),
+                    color = MaterialTheme.colors.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 8.dp)
+                )
+            }
             Spacer(modifier = Modifier.height(12.dp))
             // Hang up button (red)
             Button(
@@ -125,9 +142,13 @@ private fun OngoingCallScreen(
                 colors = ButtonDefaults.buttonColors(
                     backgroundColor = Color(0xFFD32F2F)
                 ),
-                modifier = Modifier.size(48.dp)
+                modifier = Modifier.size(56.dp)
             ) {
-                Text("✕", style = MaterialTheme.typography.title3)
+                Icon(
+                    painter = painterResource(R.drawable.ic_call_decline),
+                    contentDescription = "Hang Up",
+                    modifier = Modifier.size(24.dp)
+                )
             }
         }
     }
