@@ -11,6 +11,8 @@ import com.watchbridge.R
 import com.watchbridge.ancs.AncsAttributeParser
 import com.watchbridge.ancs.AncsConstants
 import com.watchbridge.ancs.AncsNotificationEvent
+import com.watchbridge.ui.IncomingCallActivity
+import com.watchbridge.ui.OngoingCallActivity
 
 /**
  * Special notification handling for incoming calls and active calls.
@@ -50,11 +52,22 @@ class CallNotificationHandler(
         val declineIntent = createCallActionIntent(event.notificationUid, AncsConstants.ACTION_NEGATIVE)
         val answerIntent = createCallActionIntent(event.notificationUid, AncsConstants.ACTION_POSITIVE)
 
+        val fullScreenPendingIntent = PendingIntent.getActivity(
+            context, INCOMING_CALL_NOTIF_ID,
+            Intent(context, IncomingCallActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                putExtra("call_uid", event.notificationUid.toInt())
+                putExtra("caller_name", callerName)
+            },
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
         val builder = NotificationCompat.Builder(context, NotificationChannels.CHANNEL_INCOMING_CALL)
             .setSmallIcon(R.drawable.ic_launcher)
             .setCategory(NotificationCompat.CATEGORY_CALL)
             .setOngoing(true)
             .setAutoCancel(false)
+            .setFullScreenIntent(fullScreenPendingIntent, true)
             .setStyle(
                 NotificationCompat.CallStyle.forIncomingCall(caller, declineIntent, answerIntent)
             )
@@ -81,12 +94,23 @@ class CallNotificationHandler(
 
         val hangUpIntent = createCallActionIntent(event.notificationUid, AncsConstants.ACTION_NEGATIVE)
 
+        val fullScreenPendingIntent = PendingIntent.getActivity(
+            context, ACTIVE_CALL_NOTIF_ID,
+            Intent(context, OngoingCallActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                putExtra("call_uid", event.notificationUid.toInt())
+                putExtra("caller_name", callerName)
+            },
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
         val builder = NotificationCompat.Builder(context, NotificationChannels.CHANNEL_ACTIVE_CALL)
             .setSmallIcon(R.drawable.ic_launcher)
             .setCategory(NotificationCompat.CATEGORY_CALL)
             .setOngoing(true)
             .setAutoCancel(false)
             .setUsesChronometer(true)
+            .setFullScreenIntent(fullScreenPendingIntent, true)
             .setStyle(
                 NotificationCompat.CallStyle.forOngoingCall(caller, hangUpIntent)
             )
@@ -100,6 +124,9 @@ class CallNotificationHandler(
      */
     fun cancelIncomingCall() {
         notificationManager.cancel(INCOMING_CALL_NOTIF_ID)
+        context.sendBroadcast(
+            Intent("com.watchbridge.CALL_DISMISSED").setPackage(context.packageName)
+        )
     }
 
     /**
@@ -107,6 +134,9 @@ class CallNotificationHandler(
      */
     fun cancelActiveCall() {
         notificationManager.cancel(ACTIVE_CALL_NOTIF_ID)
+        context.sendBroadcast(
+            Intent("com.watchbridge.CALL_DISMISSED").setPackage(context.packageName)
+        )
     }
 
     fun isCallCategory(categoryId: Byte): Boolean =
