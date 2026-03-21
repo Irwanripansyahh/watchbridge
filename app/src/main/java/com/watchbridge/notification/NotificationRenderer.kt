@@ -45,7 +45,7 @@ class NotificationRenderer(private val context: Context) {
         val notifId = uidToNotifId(event.notificationUid)
 
         val builder = NotificationCompat.Builder(context, channelId)
-            .setSmallIcon(R.drawable.ic_launcher)
+            .setSmallIcon(NotificationIcons.iconForCategory(event.categoryId))
             .setContentTitle(event.categoryName)
             .setContentText("Loading...")
             .setAutoCancel(true)
@@ -73,7 +73,7 @@ class NotificationRenderer(private val context: Context) {
         val body = buildBody(attrs)
 
         val builder = NotificationCompat.Builder(context, channelId)
-            .setSmallIcon(R.drawable.ic_launcher)
+            .setSmallIcon(NotificationIcons.iconForCategory(event.categoryId))
             .setContentTitle(title)
             .setAutoCancel(true)
 

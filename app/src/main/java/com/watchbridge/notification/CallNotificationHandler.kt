@@ -63,7 +63,7 @@ class CallNotificationHandler(
         )
 
         val builder = NotificationCompat.Builder(context, NotificationChannels.CHANNEL_INCOMING_CALL)
-            .setSmallIcon(R.drawable.ic_launcher)
+            .setSmallIcon(R.drawable.ic_notif_call)
             .setCategory(NotificationCompat.CATEGORY_CALL)
             .setOngoing(true)
             .setAutoCancel(false)
@@ -105,7 +105,7 @@ class CallNotificationHandler(
         )
 
         val builder = NotificationCompat.Builder(context, NotificationChannels.CHANNEL_ACTIVE_CALL)
-            .setSmallIcon(R.drawable.ic_launcher)
+            .setSmallIcon(R.drawable.ic_notif_call)
             .setCategory(NotificationCompat.CATEGORY_CALL)
             .setOngoing(true)
             .setAutoCancel(false)
