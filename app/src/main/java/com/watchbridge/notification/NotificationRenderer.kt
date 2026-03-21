@@ -4,6 +4,11 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.os.Build
+import android.os.PowerManager
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.watchbridge.R
@@ -22,7 +27,6 @@ class NotificationRenderer(private val context: Context) {
         private const val TAG = "NotificationRenderer"
         // Offset notification IDs to avoid collision with service notification (ID=1)
         private const val NOTIFICATION_ID_OFFSET = 1000
-        private const val GROUP_KEY_PREFIX = "watchbridge_"
     }
 
     private val notificationManager =
@@ -35,6 +39,8 @@ class NotificationRenderer(private val context: Context) {
     fun showBasicNotification(event: AncsNotificationEvent) {
         if (event.isSilent) return
 
+        wakeScreen()
+
         val channelId = NotificationChannels.channelForCategory(event.categoryId)
         val notifId = uidToNotifId(event.notificationUid)
 
@@ -43,7 +49,6 @@ class NotificationRenderer(private val context: Context) {
             .setContentTitle(event.categoryName)
             .setContentText("Loading...")
             .setAutoCancel(true)
-            .setGroup(groupKeyForCategory(event.categoryId))
             .setOnlyAlertOnce(true) // Don't buzz again when we update with attributes
 
         if (event.isImportant) {
@@ -71,7 +76,6 @@ class NotificationRenderer(private val context: Context) {
             .setSmallIcon(R.drawable.ic_launcher)
             .setContentTitle(title)
             .setAutoCancel(true)
-            .setGroup(groupKeyForCategory(event.categoryId))
 
         if (body.isNotEmpty()) {
             builder.setContentText(body)
@@ -184,9 +188,39 @@ class NotificationRenderer(private val context: Context) {
         )
     }
 
+    @Suppress("DEPRECATION")
+    internal fun wakeScreen() {
+        val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+        val wasInteractive = pm.isInteractive
+        Log.d(TAG, "wakeScreen() called — screen interactive=$wasInteractive")
+
+        try {
+            val wakeLock = pm.newWakeLock(
+                PowerManager.FULL_WAKE_LOCK
+                    or PowerManager.ACQUIRE_CAUSES_WAKEUP
+                    or PowerManager.ON_AFTER_RELEASE,
+                "watchbridge:notification_wake"
+            )
+            wakeLock.acquire(3000L)
+            Log.d(TAG, "wakeScreen() wake lock acquired — screen now interactive=${pm.isInteractive}")
+        } catch (e: Exception) {
+            Log.e(TAG, "wakeScreen() wake lock failed", e)
+        }
+
+        // Vibrate — short buzz
+        try {
+            val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                val vm = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
+                vm.defaultVibrator
+            } else {
+                context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+            }
+            vibrator.vibrate(VibrationEffect.createOneShot(200, VibrationEffect.DEFAULT_AMPLITUDE))
+        } catch (e: Exception) {
+            Log.e(TAG, "wakeScreen() vibrate failed", e)
+        }
+    }
+
     private fun uidToNotifId(uid: UInt): Int =
         (uid.toInt() and 0x7FFFFFFF) + NOTIFICATION_ID_OFFSET
-
-    private fun groupKeyForCategory(categoryId: Byte): String =
-        GROUP_KEY_PREFIX + AncsConstants.categoryName(categoryId).replace(" ", "_").lowercase()
 }

@@ -11,28 +11,45 @@ import com.watchbridge.ancs.AncsConstants
  */
 object NotificationChannels {
 
-    const val CHANNEL_INCOMING_CALL = "ancs_incoming_call"
-    const val CHANNEL_MISSED_CALL = "ancs_missed_call"
-    const val CHANNEL_VOICEMAIL = "ancs_voicemail"
-    const val CHANNEL_SOCIAL = "ancs_social"
-    const val CHANNEL_SCHEDULE = "ancs_schedule"
-    const val CHANNEL_EMAIL = "ancs_email"
-    const val CHANNEL_NEWS = "ancs_news"
-    const val CHANNEL_HEALTH = "ancs_health"
-    const val CHANNEL_BUSINESS = "ancs_business"
-    const val CHANNEL_LOCATION = "ancs_location"
-    const val CHANNEL_ENTERTAINMENT = "ancs_entertainment"
-    const val CHANNEL_OTHER = "ancs_other"
-    const val CHANNEL_ACTIVE_CALL = "ancs_active_call"
+    const val CHANNEL_INCOMING_CALL = "ancs_incoming_call_v2"
+    const val CHANNEL_MISSED_CALL = "ancs_missed_call_v2"
+    const val CHANNEL_VOICEMAIL = "ancs_voicemail_v2"
+    const val CHANNEL_SOCIAL = "ancs_social_v2"
+    const val CHANNEL_SCHEDULE = "ancs_schedule_v2"
+    const val CHANNEL_EMAIL = "ancs_email_v2"
+    const val CHANNEL_NEWS = "ancs_news_v2"
+    const val CHANNEL_HEALTH = "ancs_health_v2"
+    const val CHANNEL_BUSINESS = "ancs_business_v2"
+    const val CHANNEL_LOCATION = "ancs_location_v2"
+    const val CHANNEL_ENTERTAINMENT = "ancs_entertainment_v2"
+    const val CHANNEL_OTHER = "ancs_other_v2"
+    const val CHANNEL_ACTIVE_CALL = "ancs_active_call_v2"
+
+    // Old channel IDs to clean up
+    private val OLD_CHANNEL_IDS = listOf(
+        "ancs_incoming_call", "ancs_missed_call", "ancs_voicemail",
+        "ancs_social", "ancs_schedule", "ancs_email", "ancs_news",
+        "ancs_health", "ancs_business", "ancs_location",
+        "ancs_entertainment", "ancs_other", "ancs_active_call"
+    )
+
+    private val VIBRATION_PATTERN = longArrayOf(0, 200, 100, 200)
 
     fun createAll(context: Context) {
         val nm = context.getSystemService(NotificationManager::class.java)
+
+        // Delete old channels so new settings (vibration) take effect
+        OLD_CHANNEL_IDS.forEach { nm.deleteNotificationChannel(it) }
 
         val channels = listOf(
             NotificationChannel(
                 CHANNEL_INCOMING_CALL, "Incoming Calls",
                 NotificationManager.IMPORTANCE_HIGH
-            ).apply { description = "iPhone incoming call alerts" },
+            ).apply {
+                description = "iPhone incoming call alerts"
+                enableVibration(true)
+                vibrationPattern = VIBRATION_PATTERN
+            },
 
             NotificationChannel(
                 CHANNEL_MISSED_CALL, "Missed Calls",
@@ -47,7 +64,11 @@ object NotificationChannels {
             NotificationChannel(
                 CHANNEL_SOCIAL, "Social",
                 NotificationManager.IMPORTANCE_HIGH
-            ).apply { description = "Messages, social media notifications" },
+            ).apply {
+                description = "Messages, social media notifications"
+                enableVibration(true)
+                vibrationPattern = VIBRATION_PATTERN
+            },
 
             NotificationChannel(
                 CHANNEL_SCHEDULE, "Schedule",
@@ -92,7 +113,11 @@ object NotificationChannels {
             NotificationChannel(
                 CHANNEL_ACTIVE_CALL, "Active Calls",
                 NotificationManager.IMPORTANCE_HIGH
-            ).apply { description = "Active call controls" }
+            ).apply {
+                description = "Active call controls"
+                enableVibration(true)
+                vibrationPattern = VIBRATION_PATTERN
+            }
         )
 
         nm.createNotificationChannels(channels)

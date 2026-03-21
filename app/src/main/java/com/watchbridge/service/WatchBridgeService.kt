@@ -80,7 +80,7 @@ class WatchBridgeService : Service() {
         val sm = ConnectionStateMachine(connMgr, bondMgr)
 
         val renderer = NotificationRenderer(this)
-        val callHandler = CallNotificationHandler(this)
+        val callHandler = CallNotificationHandler(this, renderer)
         val appNameResolver = AppNameResolver(this)
         val pipe = AncsNotificationPipeline(
             context = this,
