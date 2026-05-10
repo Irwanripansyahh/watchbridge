@@ -38,18 +38,48 @@ base64 -i watchbridge-release.keystore | pbcopy
 
 ## Cutting a release
 
+Releases are **automatic on every push to `master`** that touches app code. No manual tagging needed:
+
 ```bash
-git tag v0.2.0
-git push origin v0.2.0
+git add -A && git commit -m "feat: my change"
+git push origin master
 ```
 
 The `Release` workflow (`.github/workflows/release.yml`) will:
-1. Build a signed release APK (`assembleRelease`).
-2. Verify the signature with `apksigner`.
-3. Create a GitHub Release named `WatchBridge 0.2.0` with auto-generated notes from commits/PRs since the previous tag.
-4. Attach `watchbridge-0.2.0.apk` + `install.sh` + `install.bat`.
+1. Look at the latest `v*` tag and compute the next patch version (e.g. `v0.1.0` → `v0.1.1`).
+2. Push the new tag.
+3. Build a signed release APK (`assembleRelease`).
+4. Verify the signature with `apksigner`.
+5. Create a GitHub Release named `WatchBridge 0.1.1` with auto-generated notes from commits/PRs since the previous tag.
+6. Attach `watchbridge-0.1.1.apk` + `install.sh` + `install.bat`.
 
 Watch the run at **GitHub repo → Actions tab**. Total time ~3 minutes.
+
+### Path filter — what triggers a release
+
+Only changes under these paths trigger a release:
+- `app/**` — Kotlin source, manifest, resources
+- `gradle/**` — version catalog, wrapper
+- `build.gradle.kts` — root build script
+- `settings.gradle.kts`
+- `.github/workflows/release.yml` — workflow itself
+
+Pushes that only touch `README.md`, `docs/`, `scripts/`, `LICENSE`, etc. are **skipped**. This keeps the release stream focused on actual app changes.
+
+### Manual minor / major bumps
+
+Auto-bump always increments the patch number. To bump minor or major:
+
+```bash
+git tag v0.2.0          # next code push will then auto-bump to v0.2.1
+git push origin v0.2.0
+```
+
+Pushing a tag manually does NOT trigger the workflow (the workflow only listens to branch pushes). Your next regular `git push origin master` to app code will pick up `v0.2.0` as the latest tag and auto-bump from there.
+
+### Skipping a release for an app-code change
+
+If you need to push app code without a release (e.g. mid-refactor on master), include `[skip ci]` in your commit message — GitHub Actions skips the run entirely.
 
 ## Local release build (sanity check)
 

@@ -120,13 +120,28 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
 ### Cutting a release
-1. Bump anything you need in your changes; commit + push to `master`.
-2. Tag and push:
-   ```bash
-   git tag v0.2.0
-   git push origin v0.2.0
-   ```
-3. The `Release` GitHub Action builds a signed APK, names it `watchbridge-0.2.0.apk`, and creates a GitHub Release with auto-generated notes + the APK + install scripts attached.
+
+Releases are **fully automatic**. Just commit and push to `master`:
+
+```bash
+git add -A && git commit -m "feat: my change"
+git push origin master
+```
+
+If the push touches `app/**`, `gradle/**`, `build.gradle.kts`, or the workflow itself, the `Release` GitHub Action will:
+1. Compute the next patch version (e.g. `v0.1.0` → `v0.1.1`) from the latest tag.
+2. Push the new tag.
+3. Build a signed APK (`watchbridge-0.1.1.apk`).
+4. Create a GitHub Release with auto-generated notes + the APK + install scripts attached.
+
+Pushes that only change docs / README / `scripts/` / CI for non-app reasons are skipped (no release noise).
+
+**Want to bump minor or major manually?** Tag it yourself before the next push:
+```bash
+git tag v0.2.0
+git push origin v0.2.0
+```
+The next code push will then auto-bump to `v0.2.1`, `v0.2.2`, etc.
 
 **One-time setup before the first release** — see [`docs/RELEASING.md`](docs/RELEASING.md) for keystore generation and the four GitHub Secrets the workflow needs.
 
