@@ -34,6 +34,7 @@ cmake-build-release/
 google-services.json
 *.keystore
 *.jks
+*.keystore.b64
 !debug.keystore
 
 # Backup files

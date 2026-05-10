@@ -1,8 +1,11 @@
 # WatchBridge
 
-**Free, open-source notification bridge for Wear OS watches and iPhones**
+[![Latest Release](https://img.shields.io/github/v/release/rajtiwariee/watchbridge?label=Download&color=brightgreen)](https://github.com/rajtiwariee/watchbridge/releases/latest)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-WatchBridge is a single Wear OS app that runs on your Galaxy Watch 4 Classic (and potentially other Wear OS 3+ devices) and connects to an iPhone over BLE to receive notifications, call alerts, and more using Apple's ANCS (Apple Notification Center Service) protocol.
+**Free, open-source notification bridge for Wear OS watches and iPhones.**
+
+WatchBridge is a single Wear OS app that runs on your **Galaxy Watch 4 / 5 / 6 (Wear OS 3+)** and connects to an iPhone over BLE to receive notifications, call alerts, and more using Apple's ANCS (Apple Notification Center Service) protocol.
 
 **No iOS app required.** ANCS is built into iOS and exposed to any bonded BLE device automatically.
 
@@ -11,63 +14,87 @@ WatchBridge is a single Wear OS app that runs on your Galaxy Watch 4 Classic (an
 ## Features
 
 - **Incoming call alerts:** Full support. Accept/Reject calls directly from your watch.
-- **SMS/iMessage notifications:** Full support. See app identifier, title, and message body.
-- **App notifications (WhatsApp, Telegram, Slack, etc.):** Full support. All apps forwarding notifications to the iOS Notification Center are supported.
-- **Email notifications:** Full support. See sender, subject, and a preview.
+- **SMS / iMessage:** Full support. See sender, title, and message body.
+- **App notifications (WhatsApp, Telegram, Slack, etc.):** All apps forwarding to the iOS Notification Center are supported.
+- **Email:** Sender, subject, and a preview.
 - **Calendar reminders & Missed calls:** Full support.
-- **Notification dismissal:** Dismissing a notification on the watch also dismisses it on the iPhone.
-- **Active call hang-up:** Best-effort support (relies on undocumented iOS features).
+- **Notification dismissal:** Dismissing on the watch dismisses on the iPhone too.
+- **Active call hang-up:** Best-effort (relies on undocumented iOS features).
 
-*Note: Due to iOS limitations, responding to messages, initiating outgoing calls, and syncing health data are not supported.*
+*Note: Due to iOS limitations, replying to messages, initiating outgoing calls, and syncing health data are not supported.*
 
 ---
 
-## Installation Guide (For End Users)
+## Quick Install (Recommended)
 
-1. **Enable Developer Options on Galaxy Watch 4 Classic:**
-   - Go to `Settings > About Watch > Software`.
-   - Tap `Software version` 5 times rapidly until developer mode is enabled.
+> Works on macOS, Linux, and Windows. Takes 2–3 minutes.
 
-2. **Enable ADB Debugging:**
-   - Go to `Settings > Developer Options`.
-   - Turn **ADB Debugging** `ON`.
-   - Turn **Debug over Wi-Fi** `ON`. 
-   - Note the `<watch-ip>:<port>` displayed under "Debug over Wi-Fi".
+1. **Download** the latest release from [Releases](https://github.com/rajtiwariee/watchbridge/releases/latest):
+   - `watchbridge-X.Y.Z.apk`
+   - `install.sh` (macOS / Linux) **or** `install.bat` (Windows)
+   
+   Put both files in the **same folder**.
 
-3. **Connect via ADB from your computer:**
-   Open a terminal/command prompt and run:
+2. **Enable Developer Options on the watch:**
+   - Settings → About watch → Software → tap **Software version** 7 times.
+
+3. **Enable Wireless Debugging on the watch:**
+   - Settings → Developer options → **Wireless debugging** ON.
+
+4. **Run the installer** from the folder where you saved the files:
+   - **macOS / Linux:** `chmod +x install.sh && ./install.sh`
+   - **Windows:** double-click `install.bat`
+   
+   The script will prompt you for the pairing code and IP shown on the watch. Done.
+
+5. **Pair with iPhone:**
+   - Open WatchBridge on the watch and grant Bluetooth permissions.
+   - On the iPhone, go to **Settings → Bluetooth** and tap **WatchBridge** when it appears.
+
+> Need ADB? The script will tell you if it's missing. On Mac: `brew install --cask android-platform-tools`. On Windows/Linux: [download platform-tools](https://developer.android.com/tools/releases/platform-tools).
+
+---
+
+## Manual Install (Advanced)
+
+If you prefer to run ADB commands yourself:
+
+1. Enable Developer Options + Wireless Debugging on the watch (steps 2–3 above).
+2. On the watch, tap **Pair new device** — note the IP:port and 6-digit code.
+3. From your computer:
    ```bash
-   adb connect <watch-ip>:<port>
+   adb pair <pair-ip:port> <code>
+   adb connect <conn-ip:port>          # the IP shown on the main Wireless debugging page
+   adb install -r watchbridge-X.Y.Z.apk
    ```
+4. Open the app on the watch and pair via iPhone Bluetooth (step 5 above).
 
-4. **Install WatchBridge:**
-   Install the WatchBridge APK to your watch:
-   ```bash
-   adb install watchbridge.apk
-   ```
+---
 
-5. **Initial Setup on the Watch:**
-   - Open the WatchBridge app on your watch.
-   - Follow the on-screen instructions.
-   - Grant Bluetooth permissions when prompted.
+## Troubleshooting
 
-6. **Pairing with your iPhone:**
-   - On your iPhone, go to `Settings > Bluetooth`.
-   - Look for **"WatchBridge"** in the list of available devices.
-   - Tap to pair.
-   - Accept any pairing/bonding requests that appear on the iPhone screen.
+**`adb: command not found`** — Install Android platform-tools (see the link in Quick Install).
+
+**Wireless debugging keeps disconnecting** — The watch usually drops the ADB session after the screen sleeps. Re-run `adb connect <ip:port>` if you need to install again. The installed app keeps working regardless.
+
+**iPhone won't show "WatchBridge" in Bluetooth** — Open the WatchBridge app on the watch first and make sure it shows "Advertising / Waiting for iPhone". Toggle iPhone Bluetooth off/on. If WatchBridge had been paired before, on the iPhone tap the (i) icon next to it → **Forget This Device**, then re-pair.
+
+**Notifications stopped after watch reboot** — Open the WatchBridge app once after a reboot to restart its background service. Wear OS aggressively kills background services on boot.
+
+**Pairing code expired** — The code on the "Pair new device" screen rotates. If `adb pair` fails, re-open that screen on the watch to get a fresh code.
+
+**App won't update / "signatures don't match"** — You probably installed a debug build (signed with your developer key) and are now trying to install the official release (signed with the project key). Uninstall first: `adb uninstall com.watchbridge`, then install the release.
 
 ---
 
 ## Technical Architecture
 
-WatchBridge operates by having the **iPhone act as the BLE Central and GATT Server**, exposing the ANCS service. The **Watch acts as a BLE Peripheral and GATT Client**, which scans for iPhones, connects, and subscribes to the ANCS characteristics.
+The **iPhone acts as the BLE Central + GATT Server**, exposing the ANCS service. The **watch acts as a BLE Peripheral + GATT Client**, scans for iPhones, connects, and subscribes to ANCS characteristics.
 
-### Connection Sequence:
-
-1. **Discovery & Connection:** The watch scans for the iPhone, connects, and discovers the ANCS service.
-2. **Bonding Initiation:** The watch attempts to subscribe to the notification source. Because this characteristic requires encryption, iOS automatically triggers the secure pairing/bonding flow.
-3. **Session:** Once bonded, the watch monitors 8-byte notification events, fetches content progressively, maps Apple's categories to Wear OS native notifications, and sends control instructions (such as "dismiss notification" or "accept call") back to the iPhone.
+**Connection sequence:**
+1. **Discovery & Connection:** Watch scans for an iPhone, connects, and discovers the ANCS service.
+2. **Bonding:** Watch subscribes to the notification source. Because that characteristic requires encryption, iOS automatically triggers secure pairing.
+3. **Session:** Watch monitors 8-byte notification events, fetches content progressively, maps Apple's categories to Wear OS notifications, and sends control instructions (e.g. "dismiss", "accept call") back to the iPhone.
 
 ---
 
@@ -75,27 +102,43 @@ WatchBridge operates by having the **iPhone act as the BLE Central and GATT Serv
 
 ### Tech Stack
 - **Language:** Kotlin
-- **UI Framework:** Jetpack Compose for Wear OS
-- **BLE Library:** Nordic Android BLE Library (`no.nordicsemi.android:ble-ktx`)
-- **Min SDK:** API 30 (Android 11 / Wear OS 3)
-- **Target SDK:** API 34
+- **UI:** Jetpack Compose for Wear OS
+- **BLE:** Nordic Android BLE Library (`no.nordicsemi.android:ble-ktx`)
+- **Min SDK:** 30 (Wear OS 3) · **Target SDK:** 34
 
 ### Project Structure
-- `app/src/main/java/com/watchbridge/ble/` - BLE scanning, GATT client connection, ANCS service interactions, and bonding.
-- `app/src/main/java/com/watchbridge/ancs/` - Low-level parsing of 8-byte ANCS events, assembling fragmented message chunks, and Session/UID management.
-- `app/src/main/java/com/watchbridge/notification/` - Mapping ANCS models to native `NotificationCompat` displays on Wear OS.
-- `app/src/main/java/com/watchbridge/service/` - Foreground service handling connection continuity and graceful reconnects.
-- `app/src/main/java/com/watchbridge/ui/` - Compose-based screens (Home, Pairing, Settings) for the watch UI.
+- `app/src/main/java/com/watchbridge/ble/` — BLE scanning, GATT client, ANCS interactions, bonding.
+- `app/src/main/java/com/watchbridge/ancs/` — Parsing 8-byte ANCS events, fragment assembly, UID management.
+- `app/src/main/java/com/watchbridge/notification/` — Mapping ANCS models to native `NotificationCompat`.
+- `app/src/main/java/com/watchbridge/service/` — Foreground service for connection continuity.
+- `app/src/main/java/com/watchbridge/ui/` — Compose screens (Home, Pairing, Settings, popups, calls).
+
+### Local debug build
+```bash
+./gradlew :app:assembleDebug
+adb install -r app/build/outputs/apk/debug/app-debug.apk
+```
+
+### Cutting a release
+1. Bump anything you need in your changes; commit + push to `master`.
+2. Tag and push:
+   ```bash
+   git tag v0.2.0
+   git push origin v0.2.0
+   ```
+3. The `Release` GitHub Action builds a signed APK, names it `watchbridge-0.2.0.apk`, and creates a GitHub Release with auto-generated notes + the APK + install scripts attached.
+
+**One-time setup before the first release** — see [`docs/RELEASING.md`](docs/RELEASING.md) for keystore generation and the four GitHub Secrets the workflow needs.
 
 ---
 
 ## Known Issues / Risks
-- **Background Kills:** Wear OS aggressively manages background services. The foreground service makes its best effort to stay alive to maintain the BLE connection.
-- **iOS version variances:** The "Active Call" category (12) is historically undocumented by Apple, meaning call hang-up behaviors might vary between iOS 15, 16, 17, and 18.
-- **Bond drops:** In rare scenarios, the iPhone may forget the bonding keys, requiring the user to "Forget Device" and re-pair.
+- **Background kills:** Wear OS aggressively manages background services. The foreground service tries its best to stay alive.
+- **iOS version variances:** The "Active Call" category (12) is undocumented by Apple, so call hang-up behavior may vary across iOS 15–18.
+- **Bond drops:** Rarely, the iPhone may forget the bonding keys. Workaround: "Forget Device" on the iPhone and re-pair.
 
 ---
 
 ## License
 
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+MIT — see [LICENSE](LICENSE).
