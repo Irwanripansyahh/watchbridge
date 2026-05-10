@@ -45,6 +45,16 @@
         </activity>
 
         <activity
+            android:name=".ui.NotificationPopupActivity"
+            android:exported="false"
+            android:taskAffinity=""
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:launchMode="singleInstance" />
+
+        <activity
             android:name=".ui.IncomingCallActivity"
             android:exported="false"
             android:taskAffinity=""

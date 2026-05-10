@@ -15,6 +15,7 @@ import com.watchbridge.R
 import com.watchbridge.ancs.AncsAttributeParser
 import com.watchbridge.ancs.AncsConstants
 import com.watchbridge.ancs.AncsNotificationEvent
+import com.watchbridge.ui.NotificationPopupActivity
 
 /**
  * Renders ANCS notifications as Wear OS native notifications.
@@ -39,8 +40,6 @@ class NotificationRenderer(private val context: Context) {
     fun showBasicNotification(event: AncsNotificationEvent) {
         if (event.isSilent) return
 
-        wakeScreen()
-
         val channelId = NotificationChannels.channelForCategory(event.categoryId)
         val notifId = uidToNotifId(event.notificationUid)
 
@@ -51,9 +50,7 @@ class NotificationRenderer(private val context: Context) {
             .setAutoCancel(true)
             .setOnlyAlertOnce(true) // Don't buzz again when we update with attributes
 
-        if (event.isImportant) {
-            builder.priority = NotificationCompat.PRIORITY_HIGH
-        }
+        builder.priority = NotificationCompat.PRIORITY_HIGH
 
         notificationManager.notify(notifId, builder.build())
     }
@@ -85,8 +82,30 @@ class NotificationRenderer(private val context: Context) {
             }
         }
 
-        if (event.isImportant) {
-            builder.priority = NotificationCompat.PRIORITY_HIGH
+        builder.priority = NotificationCompat.PRIORITY_HIGH
+        builder.setCategory(NotificationCompat.CATEGORY_MESSAGE)
+
+        // Full-screen intent: launches NotificationPopupActivity over the watch face when
+        // the screen is off/locked (the common case on a watch). FSI is the only reliable
+        // way to launch an activity from a foreground service on Android 14+ — direct
+        // startActivity() is blocked by Background Activity Launch (BAL) restrictions
+        // unless the FGS type is one of phoneCall/mediaPlayback/voip/etc.
+        // (connectedDevice is not on that list.)
+        if (!isCallCategory(event.categoryId) && !event.isSilent) {
+            val (appName, sender, popupBody) = buildPopupFields(event, attrs, appDisplayName)
+            val popupIntent = Intent(context, NotificationPopupActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                putExtra("app_name", appName)
+                putExtra("sender", sender)
+                putExtra("body", popupBody)
+                putExtra("category_id", event.categoryId)
+                putExtra("notification_uid", event.notificationUid.toInt())
+            }
+            val popupPi = PendingIntent.getActivity(
+                context, notifId, popupIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            builder.setFullScreenIntent(popupPi, true)
         }
 
         // Add dismiss action via broadcast
@@ -130,11 +149,33 @@ class NotificationRenderer(private val context: Context) {
         Log.d(TAG, "Showed notification uid=${event.notificationUid}: $title")
     }
 
+    private fun isCallCategory(categoryId: Byte): Boolean =
+        categoryId == AncsConstants.CATEGORY_INCOMING_CALL ||
+            categoryId == AncsConstants.CATEGORY_ACTIVE_CALL
+
+    private fun buildPopupFields(
+        event: AncsNotificationEvent,
+        attrs: AncsAttributeParser.NotificationAttributes,
+        appDisplayName: String?
+    ): Triple<String, String, String> {
+        val appName = appDisplayName ?: event.categoryName
+        val sender = attrs.title?.takeIf { it.isNotEmpty() } ?: appName
+        val body = attrs.message ?: ""
+        return Triple(appName, sender, body)
+    }
+
     /**
      * Remove a notification when ANCS sends a Removed event.
      */
     fun cancelNotification(notificationUid: UInt) {
         notificationManager.cancel(uidToNotifId(notificationUid))
+        // Dismiss popup if it's still showing
+        context.sendBroadcast(
+            Intent(NotificationPopupActivity.BROADCAST_POPUP_DISMISSED).apply {
+                setPackage(context.packageName)
+                putExtra("notification_uid", notificationUid.toInt())
+            }
+        )
     }
 
     /**

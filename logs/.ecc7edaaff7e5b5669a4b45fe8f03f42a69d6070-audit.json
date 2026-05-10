@@ -1,0 +1,15 @@
+{
+    "keep": {
+        "days": true,
+        "amount": 14
+    },
+    "auditLog": "/Users/rajtiwari/Documents/personal_work/coding/waterbridge_galaxy_watch/logs/.ecc7edaaff7e5b5669a4b45fe8f03f42a69d6070-audit.json",
+    "files": [
+        {
+            "date": 1778392505163,
+            "name": "/Users/rajtiwari/Documents/personal_work/coding/waterbridge_galaxy_watch/logs/mcp-puppeteer-2026-05-10.log",
+            "hash": "da13bcb9bbd80faf0e66d924b0d1be52cfdb31d12815e3fab755de5539b64b15"
+        }
+    ],
+    "hashType": "sha256"
+}
