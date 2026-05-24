@@ -4,6 +4,7 @@ build/
 
 # IntelliJ IDEA/Android Studio files
 .idea/
+.claude/
 *.iml
 *.iws
 *.ipr
@@ -22,6 +23,7 @@ local.properties
 
 # Log files
 *.log
+logs/
 
 # Android specific
 captures/
