@@ -6,11 +6,36 @@
 > **Forked from [rajtiwariee/watchbridge](https://github.com/rajtiwariee/watchbridge).** Thanks to the original author for the BLE/ANCS foundation.
 > This fork adds: native Wear OS notifications with each app's real icon and original time, per-app stacks and chat conversations, iPhone media controls (AMS), a connection tile, never-give-up reconnect plus auto-start after reboot, in-app updates from GitHub Releases, more reliable notification loading when many arrive at once, and a working vibration toggle.
 
-**Free, open-source notification bridge for Wear OS watches and iPhones.**
+**Free, open-source notification bridge for Wear OS watches and iPhones — no companion app on the iPhone.**
 
-WatchBridge is a single Wear OS app that runs on your **Galaxy Watch 4 / 5 / 6 (Wear OS 3+)** and connects to an iPhone over BLE to receive notifications and call alerts, and to control the iPhone's music, using Apple's ANCS (Apple Notification Center Service) and AMS (Apple Media Service) protocols.
+WatchBridge is a single Wear OS app that runs on your **Galaxy Watch 4 or newer (Wear OS 3+)** and connects to an iPhone over BLE to receive notifications and call alerts, and to control the iPhone's music, using Apple's ANCS (Apple Notification Center Service) and AMS (Apple Media Service) protocols.
 
-**No iOS app required.** ANCS (notifications) and AMS (media controls) are built into iOS and exposed to any bonded BLE device automatically.
+### No companion app on the iPhone
+
+There is **nothing to install on the iPhone** — no App Store app, no TestFlight, no jailbreak, and no iPhone app running in the background that iOS could close. You only pair the watch once in the iPhone's **Settings → Bluetooth**, like a pair of headphones.
+
+This works because notifications (ANCS) and media controls (AMS) are services **built into iOS** itself: iOS offers them to any Bluetooth device it's paired with. WatchBridge on the watch is the only app involved.
+
+---
+
+## Screenshots
+
+*Galaxy Watch (SM-L300), One UI 8 Watch / Wear OS 6*
+
+<table>
+  <tr>
+    <td align="center"><img src="docs/screenshots/home.png" width="190" alt="Home screen showing the iPhone connection status"><br><sub>Home</sub></td>
+    <td align="center"><img src="docs/screenshots/notification.png" width="190" alt="WhatsApp notification with the real WhatsApp icon"><br><sub>Notification with the app's real icon</sub></td>
+    <td align="center"><img src="docs/screenshots/now-playing.png" width="190" alt="Now Playing media controls"><br><sub>iPhone media controls</sub></td>
+    <td align="center"><img src="docs/screenshots/tile.png" width="190" alt="Connection status tile"><br><sub>Connection tile</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/screenshots/home-menu.png" width="190" alt="Home menu with Now Playing and Settings"><br><sub>Home menu</sub></td>
+    <td align="center"><img src="docs/screenshots/settings-updates.png" width="190" alt="Settings with in-app updates"><br><sub>Updates in Settings</sub></td>
+    <td align="center"><img src="docs/screenshots/settings-general.png" width="190" alt="General settings: vibration and Do Not Disturb"><br><sub>General settings</sub></td>
+    <td align="center"><img src="docs/screenshots/settings-categories.png" width="190" alt="Per-category notification filters"><br><sub>Category filters</sub></td>
+  </tr>
+</table>
 
 ---
 
@@ -18,6 +43,7 @@ WatchBridge is a single Wear OS app that runs on your **Galaxy Watch 4 / 5 / 6 (
 
 | Feature | What you get |
 |---|---|
+| **No iPhone app** | Nothing to install on the iPhone — just pair the watch in Bluetooth settings |
 | **Notifications** | Every app that posts to the iOS Notification Center, shown as native Wear OS notifications with the app's **real icon** and the **original time** |
 | **Stacked per app** | Ten WhatsApp messages become one WhatsApp stack, not ten loose cards |
 | **Chat conversations** | Messages from the same chat are shown together in the native Wear OS chat layout |
