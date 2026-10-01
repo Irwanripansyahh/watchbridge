@@ -88,7 +88,7 @@ fun PairingScreen(
         ) {
             item {
                 Text(
-                    text = "Pair with iPhone",
+                    text = "Pair with phone",
                     style = MaterialTheme.typography.title3,
                     color = MaterialTheme.colors.primary,
                     textAlign = TextAlign.Center
@@ -167,7 +167,7 @@ fun PairingScreen(
                         CircularProgressIndicator()
                         Spacer(Modifier.height(8.dp))
                         Text(
-                            text = "Connecting...\nAccept pairing on iPhone\nif prompted",
+                            text = "Connecting...\nAccept pairing on phone\nif prompted",
                             style = MaterialTheme.typography.body2,
                             textAlign = TextAlign.Center,
                             color = MaterialTheme.colors.onSurfaceVariant
@@ -192,7 +192,7 @@ fun PairingScreen(
                         )
                         Spacer(Modifier.height(4.dp))
                         Text(
-                            text = "Makes this watch visible\nto your iPhone",
+                            text = "Makes this watch visible\nto your phone",
                             style = MaterialTheme.typography.caption2,
                             textAlign = TextAlign.Center,
                             color = MaterialTheme.colors.onSurfaceVariant
@@ -243,7 +243,7 @@ private fun AdvertisingContent() {
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
                 Text(
-                    text = "On your iPhone:",
+                    text = "On your phone:",
                     style = MaterialTheme.typography.body2,
                     textAlign = TextAlign.Center,
                     color = MaterialTheme.colors.onSurface

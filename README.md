@@ -53,7 +53,7 @@ This works because notifications (ANCS) and media controls (AMS) are services **
 | **Calls** | Full-screen incoming call with Accept / Decline; ongoing call screen with timer and hang-up |
 | **iPhone media controls** | Play/pause, next/previous and volume for Spotify, Apple Music, YouTube Music, podcasts... Turn the bezel/crown for volume. Has its own **Music Control** app icon and tile |
 | **Camera Remote** | Shutter button for the iPhone Camera app with an Instant / 3 s / 5 s self-timer. Has its own **Camera Remote** app icon |
-| **Tiles** | *iPhone connection* (status + one-tap reconnect) and *Music Control* (track, play controls and volume) |
+| **Tiles** | *Phone connection* (iPhone name, battery, status + one-tap reconnect) and *Music Control* (track, play controls and volume) |
 | **Stays connected** | Reconnects by itself when the iPhone is back in range, and after a watch reboot or app update |
 | **Filters** | Per-category toggles, Do Not Disturb, silent and pre-existing notifications, vibration on/off |
 | **Updates on the watch** | Check, download and install new releases from Settings — no computer needed after the first install |
@@ -75,7 +75,7 @@ iPhone notifications arrive as regular Wear OS notifications, so they look and b
 - **Action buttons:** when iOS offers actions for a notification (e.g. *Clear*, *Accept*, *Decline*), they appear as buttons under it.
 - **Dismissal sync:** dismissing on the watch dismisses on the iPhone; when you read or clear a notification on the iPhone, it disappears from the watch.
 - **Stays until you clear it:** notifications are only removed when you clear them, on the watch or the iPhone. They stay when the iPhone goes out of range or WatchBridge restarts (e.g. after an update). Only call screens close when the connection drops.
-- **Bursts of notifications:** when many arrive at once (a busy group chat, or everything that piled up while the watch was away), each one still loads its full content. A notification only appears once its content is in — usually well under a second — so there are no half-loaded placeholders. If the iPhone doesn't answer, the watch asks again; if it still can't get the content, the notification says *Open your iPhone to read it*.
+- **Bursts of notifications:** when many arrive at once (a busy group chat, or everything that piled up while the watch was away), each one still loads its full content. A notification only appears once its content is in — usually well under a second — so there are no half-loaded placeholders. If the iPhone doesn't answer, the watch asks again; if it still can't get the content, the notification says *Open your phone to read it*.
 
 ### Calls
 
@@ -116,18 +116,19 @@ Take photos on the iPhone from your wrist — handy for group shots and selfies 
 
 ### Tiles
 
-WatchBridge has two tiles. To add one: on the watch, swipe to your tiles, press and hold one, then tap **+** and pick **iPhone connection** or **Music Control**.
+WatchBridge has two tiles. To add one: on the watch, swipe to your tiles, press and hold one, then tap **+** and pick **Phone connection** or **Music Control**.
 
 The **Music Control** tile shows the playing app, track and artist, with previous / play-pause / next buttons and volume down / up (see *iPhone media controls*). The bezel only changes the volume in the full player; tiles only take taps.
 
-The **iPhone connection** tile shows the connection state at a glance — *Connected*, *Connecting…*, *iPhone out of range*, *Disconnected* — with a button that reconnects in one tap (or opens the app when there's nothing to fix).
+The **Phone connection** tile shows your iPhone's name and battery level at the top (left blank when unknown, e.g. while disconnected; can be turned off with *Phone info on tile* in Settings), and the connection state at a glance — *Connected*, *Connecting…*, *Phone out of range*, *Disconnected* — with a button that reconnects in one tap (or opens the app when there's nothing to fix).
 
 ### Staying connected
 
 You shouldn't need to open the app after the first pairing:
 
-- **iPhone out of range:** WatchBridge retries quickly for about 5 minutes, then switches to a low-power background wait. As soon as the iPhone is back in range, it reconnects on its own — whether you were away for 10 minutes or all day. The home screen shows *Waiting for iPhone* meanwhile.
+- **iPhone out of range:** WatchBridge retries quickly for about 5 minutes, then switches to a low-power background wait. As soon as the iPhone is back in range, it reconnects on its own — whether you were away for 10 minutes or all day. The home screen shows *Waiting for phone* meanwhile.
 - **Watch reboot or app update:** the bridge starts again automatically.
+- **Watch Bluetooth off:** WatchBridge stops trying to reconnect (no point while Bluetooth is off), shows a *Bluetooth is off* notification, and the home screen offers **Turn on Bluetooth**. As soon as Bluetooth is back on, it reconnects by itself.
 - **Reconnect now:** to skip the wait, tap **Reconnect now** on the home screen or **Reconnect** on the tile.
 
 ### Updating
@@ -154,6 +155,7 @@ Open the app → **Settings**.
 | **Respect DND** | On | While the **watch** is in Do Not Disturb, only incoming calls are shown. |
 | **Show pre-existing** | Off | Also show notifications that were already on the iPhone when the watch connected. |
 | **Show silent** | Off | Also show notifications that iOS delivered silently. |
+| **Phone info on tile** | On | Show the phone's name and battery level at the top of the *Phone connection* tile. |
 | **Categories** | All on | Turn off whole iOS categories: Incoming Calls, Missed Calls, Voicemail, Social, Schedule, Email, News, Health & Fitness, Business & Finance, Location, Entertainment, Other. |
 
 Per-category sound and vibration can also be fine-tuned in the watch's own notification settings for WatchBridge.
@@ -220,7 +222,7 @@ If you prefer to run ADB commands yourself:
 
 **Connected, but no notifications arrive** — On the iPhone, go to **Settings → Bluetooth**, tap the (i) next to WatchBridge, and make sure **Share System Notifications** is on. Also check the Categories in WatchBridge Settings, and that the watch isn't in Do Not Disturb (see *Respect DND*).
 
-**A notification says "Open your iPhone to read it"** — The watch asked the iPhone for that notification's content three times and got no answer, usually because the Bluetooth link dropped for a moment. Open the notification on the iPhone; new notifications load normally again once the link is back.
+**A notification says "Open your phone to read it"** — The watch asked the iPhone for that notification's content three times and got no answer, usually because the Bluetooth link dropped for a moment. Open the notification on the iPhone; new notifications load normally again once the link is back.
 
 **Notifications show a generic icon instead of the app's icon** — ANCS doesn't send app icons. Icons for ~75 popular apps (WhatsApp, Messages, YouTube, Gojek, BCA, ...) ship inside the APK and work offline. Any other app's icon is downloaded from the App Store the first time it notifies, which needs Wi-Fi or LTE on the watch once per app; after that the icon is cached. If the watch was offline, it retries automatically about 10 minutes later.
 
@@ -232,7 +234,7 @@ If you prefer to run ADB commands yourself:
 
 **Turning the bezel doesn't change the volume** — The Now Playing screen needs to be open and in front. Some players ignore remote volume changes; the volume buttons are greyed out for those.
 
-**Can't find the tiles** — In the tile picker they're called **iPhone connection** and **Music Control** (from WatchBridge). Tiles have to be added once by hand; see *Tiles* above.
+**Can't find the tiles** — In the tile picker they're called **Phone connection** and **Music Control** (from WatchBridge). Tiles have to be added once by hand; see *Tiles* above.
 
 **Settings says "No release with an APK on GitHub yet"** — Nothing has been published on this repo's [Releases](https://github.com/Irwanripansyahh/watchbridge/releases) page yet; see *Cutting a release*.
 
@@ -258,11 +260,12 @@ The **iPhone acts as the BLE Central + GATT Server**, exposing the ANCS service.
 1. **Discovery & Connection:** Watch scans for an iPhone, connects, and discovers the ANCS service.
 2. **Bonding:** Watch subscribes to the notification source. Because that characteristic requires encryption, iOS automatically triggers secure pairing.
 3. **Session:** Watch monitors 8-byte notification events, fetches content progressively, maps Apple's categories to Wear OS notifications, and sends control instructions (e.g. "dismiss", "accept call") back to the iPhone. Content responses arrive split over several BLE packets; a response counts as complete only once every requested attribute is in (a packet can end exactly between two attributes). Partial responses that stop arriving are dropped after 1 s, and unanswered requests are retried twice.
-4. **Media (optional):** Watch subscribes to AMS for the player (name, playback state, volume) and track (title, artist, duration), and sends remote commands (play/pause, next, volume...). If AMS isn't available, notifications work as usual.
+4. **iPhone battery (optional):** Watch reads the iPhone's standard Battery Service (`0x180F`) and follows its changes, for the connection tile.
+5. **Media (optional):** Watch subscribes to AMS for the player (name, playback state, volume) and track (title, artist, duration), and sends remote commands (play/pause, next, volume...). If AMS isn't available, notifications work as usual.
 
 **Notification rendering:** ANCS only sends an app's bundle ID (e.g. `net.whatsapp.WhatsApp`). The watch maps it to the app's icon — first from the icons bundled in the APK, then from its cache, and finally from the App Store (iTunes Lookup API). Notifications are grouped by bundle ID; "Social" notifications with a sender and message are merged per chat into a `MessagingStyle` notification.
 
-**Reconnection:** after a disconnect the watch retries with exponential backoff (1 s → 60 s) for 8 attempts, then hands over to Android's `autoConnect`, a low-power background connection with no timeout. A `BOOT_COMPLETED` / `MY_PACKAGE_REPLACED` receiver restarts the bridge after a reboot or update.
+**Reconnection:** after a disconnect the watch retries with exponential backoff (1 s → 60 s) for 8 attempts, then hands over to Android's `autoConnect`, a low-power background connection with no timeout. Reconnecting pauses while the watch's Bluetooth is off (`ACTION_STATE_CHANGED`) and starts over when it's back on. A `BOOT_COMPLETED` / `MY_PACKAGE_REPLACED` receiver restarts the bridge after a reboot or update.
 
 **Camera remote:** the watch registers as a Bluetooth Classic HID device (`BluetoothHidDevice`) with a single consumer-control report (Volume Up / Volume Down) and connects to the paired iPhone. Classic runs alongside the BLE link used for ANCS/AMS, since two devices can only share one BLE link. The HID app is registered only while the Camera Remote screen is open.
 

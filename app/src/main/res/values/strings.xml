@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">WatchBridge</string>
-    <string name="scanning">Scanning for iPhones...</string>
+    <string name="scanning">Scanning for phones...</string>
     <string name="connect">Connect</string>
     <string name="disconnect">Disconnect</string>
     <string name="paired">Paired</string>
@@ -9,12 +9,12 @@
     <string name="connecting">Connecting...</string>
     <string name="bonding">Pairing...</string>
     <string name="connected">Connected</string>
-    <string name="scan_for_iphone">Scan for iPhone</string>
+    <string name="scan_for_iphone">Scan for phone</string>
     <string name="no_devices_found">No devices found</string>
     <string name="notification_channel_service">WatchBridge Service</string>
     <string name="service_notification_title">WatchBridge Active</string>
-    <string name="service_notification_text">Listening for iPhone notifications</string>
-    <string name="tile_label">iPhone connection</string>
+    <string name="service_notification_text">Listening for phone notifications</string>
+    <string name="tile_label">Phone connection</string>
     <string name="media_app_name">Music Control</string>
     <string name="media_tile_label">Music Control</string>
     <string name="camera_app_name">Camera Remote</string>

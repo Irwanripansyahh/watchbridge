@@ -54,6 +54,8 @@ class ConnectionStateMachine(
         RECONNECTING,
         /** iPhone out of range: Android connects in the background as soon as it's back. */
         WAITING_FOR_PHONE,
+        /** The watch's Bluetooth is off: nothing to try until it's back on. */
+        BLUETOOTH_OFF,
         /** No bonded iPhone to reconnect to; the user has to pair again. */
         FAILED
     }
@@ -97,6 +99,11 @@ class ConnectionStateMachine(
         }
         targetDevice = device
         autoReconnectEnabled = true
+        if (!bondManager.isBluetoothEnabled()) {
+            // Connects once Bluetooth is back on (see onBluetoothStateChanged)
+            onBluetoothStateChanged(enabled = false)
+            return
+        }
         reconnectAttempt = 0
         currentBackoffMs = INITIAL_BACKOFF_MS
         reconnectJob?.cancel()
@@ -109,6 +116,12 @@ class ConnectionStateMachine(
      * Try to auto-connect to the previously bonded device.
      */
     fun autoConnectToBonded(): Boolean {
+        if (!bondManager.isBluetoothEnabled()) {
+            // Paired devices can't even be listed with Bluetooth off; connect once it's back on
+            autoReconnectEnabled = true
+            onBluetoothStateChanged(enabled = false)
+            return true
+        }
         val device = bondManager.getBondedDevice()
         if (device != null) {
             connectTo(device)
@@ -128,6 +141,35 @@ class ConnectionStateMachine(
         _state.value = State.IDLE
         targetDevice = null
         Log.i(TAG, "Manual disconnect")
+    }
+
+    /**
+     * The watch's Bluetooth was turned off or on. While it's off, reconnecting pauses instead
+     * of retrying in a loop; once it's back on, reconnecting starts over right away.
+     */
+    fun onBluetoothStateChanged(enabled: Boolean) {
+        if (!enabled) {
+            reconnectJob?.cancel()
+            reconnectJob = null
+            val previous = _state.value
+            if (previous == State.BLUETOOTH_OFF) return
+            _state.value = State.BLUETOOTH_OFF
+            Log.i(TAG, "Bluetooth off — pausing reconnects")
+            // The link went down with Bluetooth: clean up as for any disconnect
+            if (previous == State.READY || previous == State.CONNECTED) onDisconnected?.invoke()
+            return
+        }
+
+        if (_state.value != State.BLUETOOTH_OFF) return
+        _state.value = State.IDLE
+        if (!autoReconnectEnabled) return
+        Log.i(TAG, "Bluetooth back on — reconnecting")
+        val device = targetDevice ?: bondManager.getBondedDevice()
+        if (device != null) {
+            connectTo(device)
+        } else {
+            _state.value = State.FAILED
+        }
     }
 
     /**
@@ -204,7 +246,8 @@ class ConnectionStateMachine(
                 // Manual disconnect, or a failed attempt that already scheduled the next one
                 if (previousState == State.IDLE ||
                     previousState == State.WAITING_TO_RECONNECT ||
-                    previousState == State.WAITING_FOR_PHONE
+                    previousState == State.WAITING_FOR_PHONE ||
+                    previousState == State.BLUETOOTH_OFF
                 ) return
 
                 val wasReady = previousState == State.READY || previousState == State.CONNECTED
@@ -248,6 +291,11 @@ class ConnectionStateMachine(
      */
     private fun onConnectAttemptFailed() {
         if (!autoReconnectEnabled) return
+        // Failed because Bluetooth was turned off: wait for it instead of retrying
+        if (!bondManager.isBluetoothEnabled()) {
+            onBluetoothStateChanged(enabled = false)
+            return
+        }
         val device = targetDevice ?: bondManager.getBondedDevice()
         if (!isPairedIphone(device)) return
         scheduleReconnect()
@@ -268,6 +316,10 @@ class ConnectionStateMachine(
         if (!autoReconnectEnabled) {
             Log.d(TAG, "Auto-reconnect disabled, not reconnecting")
             _state.value = State.IDLE
+            return
+        }
+        if (!bondManager.isBluetoothEnabled()) {
+            onBluetoothStateChanged(enabled = false)
             return
         }
 

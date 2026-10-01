@@ -30,7 +30,7 @@ class ReconnectActivity : Activity() {
                 Intent(this, WatchBridgeService::class.java)
                     .setAction(WatchBridgeService.ACTION_CONNECT_BONDED)
             )
-            Toast.makeText(this, "Reconnecting to iPhone…", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Reconnecting to phone…", Toast.LENGTH_SHORT).show()
         } else {
             // Not paired yet, or permissions missing: the app walks the user through it
             startActivity(Intent(this, MainActivity::class.java))

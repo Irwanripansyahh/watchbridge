@@ -57,6 +57,7 @@ fun HomeScreen(
     onNavigateToSettings: () -> Unit,
     onNavigateToMedia: () -> Unit,
     onReconnect: () -> Unit,
+    onTurnOnBluetooth: () -> Unit,
     onDisconnect: () -> Unit
 ) {
     val sm = WatchBridgeService.stateMachine
@@ -101,6 +102,7 @@ fun HomeScreen(
                     smState = smState,
                     onNavigateToPairing = onNavigateToPairing,
                     onReconnect = onReconnect,
+                    onTurnOnBluetooth = onTurnOnBluetooth,
                     onDisconnect = onDisconnect
                 )
             }
@@ -116,7 +118,7 @@ fun HomeScreen(
                             text = when {
                                 media.title.isNotEmpty() -> media.title
                                 media.hasPlayer -> media.playerName
-                                else -> "Control iPhone music"
+                                else -> "Control phone music"
                             },
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
@@ -166,7 +168,8 @@ private fun StatusCard(smState: ConnectionStateMachine.State, activeCount: Int) 
         ConnectionStateMachine.State.DISCONNECTED -> Triple("Disconnected", StatusDisconnected, false)
         ConnectionStateMachine.State.WAITING_TO_RECONNECT -> Triple("Reconnecting soon...", Color(0xFFFFB74D), true)
         ConnectionStateMachine.State.RECONNECTING -> Triple("Reconnecting...", StatusConnecting, true)
-        ConnectionStateMachine.State.WAITING_FOR_PHONE -> Triple("Waiting for iPhone", Color(0xFFFFB74D), true)
+        ConnectionStateMachine.State.WAITING_FOR_PHONE -> Triple("Waiting for phone", Color(0xFFFFB74D), true)
+        ConnectionStateMachine.State.BLUETOOTH_OFF -> Triple("Bluetooth Off", StatusDisconnected, false)
         ConnectionStateMachine.State.FAILED -> Triple("Not Paired", StatusDisconnected, false)
     }
 
@@ -233,9 +236,25 @@ private fun ActionChip(
     smState: ConnectionStateMachine.State,
     onNavigateToPairing: () -> Unit,
     onReconnect: () -> Unit,
+    onTurnOnBluetooth: () -> Unit,
     onDisconnect: () -> Unit
 ) {
     when (smState) {
+        ConnectionStateMachine.State.BLUETOOTH_OFF -> {
+            Chip(
+                onClick = onTurnOnBluetooth,
+                label = { Text("Turn on Bluetooth") },
+                icon = {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_bluetooth),
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                },
+                colors = ChipDefaults.primaryChipColors(),
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
         ConnectionStateMachine.State.IDLE,
         ConnectionStateMachine.State.FAILED -> {
             Chip(

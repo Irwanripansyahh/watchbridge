@@ -3,6 +3,9 @@ package com.watchbridge.service
 import android.app.Notification
 import android.app.PendingIntent
 import android.app.Service
+import android.bluetooth.BluetoothAdapter
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.IBinder
@@ -43,6 +46,7 @@ class WatchBridgeService : Service() {
     companion object {
         private const val TAG = "WatchBridgeService"
         private const val NOTIFICATION_ID = 1
+        private const val BLUETOOTH_OFF_NOTIFICATION_ID = 2
         private const val WAKE_LOCK_TAG = "WatchBridge::BleConnection"
 
         const val ACTION_START = "com.watchbridge.service.START"
@@ -73,6 +77,17 @@ class WatchBridgeService : Service() {
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var wakeLock: PowerManager.WakeLock? = null
     private var actionReceiver: NotificationActionReceiver? = null
+
+    /** Pauses reconnecting while the watch's Bluetooth is off, resumes when it's back on. */
+    private val bluetoothStateReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            when (intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, BluetoothAdapter.ERROR)) {
+                BluetoothAdapter.STATE_TURNING_OFF,
+                BluetoothAdapter.STATE_OFF -> stateMachine?.onBluetoothStateChanged(enabled = false)
+                BluetoothAdapter.STATE_ON -> stateMachine?.onBluetoothStateChanged(enabled = true)
+            }
+        }
+    }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -152,23 +167,28 @@ class WatchBridgeService : Service() {
 
         pipe.start()
         sm.start()
+        registerReceiver(bluetoothStateReceiver, IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED))
+        // Bluetooth may already be off when the service starts (e.g. at boot)
+        sm.onBluetoothStateChanged(enabled = bondMgr.isBluetoothEnabled())
 
         serviceScope.launch {
             sm.state.collect { state ->
                 val statusText = when (state) {
                     ConnectionStateMachine.State.IDLE -> "Not connected"
-                    ConnectionStateMachine.State.ADVERTISING -> "Waiting for iPhone..."
+                    ConnectionStateMachine.State.ADVERTISING -> "Waiting for phone..."
                     ConnectionStateMachine.State.CONNECTING -> "Connecting..."
                     ConnectionStateMachine.State.CONNECTED -> "Bonding & discovering..."
-                    ConnectionStateMachine.State.READY -> "Connected to iPhone"
+                    ConnectionStateMachine.State.READY -> "Connected to phone"
                     ConnectionStateMachine.State.DISCONNECTED -> "Disconnected"
                     ConnectionStateMachine.State.WAITING_TO_RECONNECT -> "Waiting to reconnect..."
                     ConnectionStateMachine.State.RECONNECTING -> "Reconnecting..."
-                    ConnectionStateMachine.State.WAITING_FOR_PHONE -> "Waiting for iPhone (out of range)"
+                    ConnectionStateMachine.State.WAITING_FOR_PHONE -> "Waiting for phone (out of range)"
+                    ConnectionStateMachine.State.BLUETOOTH_OFF -> "Bluetooth is off"
                     ConnectionStateMachine.State.FAILED -> "Not paired"
                 }
                 updateNotification(statusText)
                 ConnectionTileService.requestUpdate(this@WatchBridgeService)
+                showBluetoothOffAlert(state == ConnectionStateMachine.State.BLUETOOTH_OFF)
 
                 when (state) {
                     ConnectionStateMachine.State.READY ->
@@ -180,6 +200,11 @@ class WatchBridgeService : Service() {
                     else -> {}
                 }
             }
+        }
+
+        // The connection tile shows the iPhone's battery
+        serviceScope.launch {
+            connMgr.phoneBattery.collect { ConnectionTileService.requestUpdate(this@WatchBridgeService) }
         }
 
         // Refresh the media tile when what it shows changes (not on every position tick)
@@ -236,6 +261,10 @@ class WatchBridgeService : Service() {
         try {
             actionReceiver?.let { unregisterReceiver(it) }
         } catch (_: IllegalArgumentException) { }
+        try {
+            unregisterReceiver(bluetoothStateReceiver)
+        } catch (_: IllegalArgumentException) { }
+        showBluetoothOffAlert(false)
 
         releaseWakeLock()
         serviceScope.cancel()
@@ -272,6 +301,32 @@ class WatchBridgeService : Service() {
             if (it.isHeld) it.release()
         }
         wakeLock = null
+    }
+
+    /**
+     * A notification while the watch's Bluetooth is off, since nothing arrives from the
+     * iPhone meanwhile. Posted once per time Bluetooth goes off; removed when it's back on.
+     */
+    private fun showBluetoothOffAlert(show: Boolean) {
+        val nm = getSystemService(android.app.NotificationManager::class.java)
+        if (!show) {
+            nm.cancel(BLUETOOTH_OFF_NOTIFICATION_ID)
+            return
+        }
+
+        val openApp = PendingIntent.getActivity(
+            this, BLUETOOTH_OFF_NOTIFICATION_ID, Intent(this, MainActivity::class.java),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val notification = NotificationCompat.Builder(this, WatchBridgeApp.CONNECTION_ALERTS_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_bluetooth_disabled)
+            .setContentTitle("Bluetooth is off")
+            .setContentText("Turn on Bluetooth to get your phone's notifications")
+            .setContentIntent(openApp)
+            .setAutoCancel(true)
+            .setOnlyAlertOnce(true)
+            .build()
+        nm.notify(BLUETOOTH_OFF_NOTIFICATION_ID, notification)
     }
 
     private fun updateNotification(statusText: String) {

@@ -52,14 +52,14 @@ object NotificationChannels {
     private class ChannelSpec(val id: String, val name: String, val description: String)
 
     private val CALL_CHANNELS = listOf(
-        ChannelSpec(CHANNEL_INCOMING_CALL, "Incoming Calls", "iPhone incoming call alerts"),
+        ChannelSpec(CHANNEL_INCOMING_CALL, "Incoming Calls", "Phone incoming call alerts"),
         ChannelSpec(CHANNEL_ACTIVE_CALL, "Active Calls", "Active call controls")
     )
 
     /** Channels that follow the "Vibration" setting. */
     private val ALERT_CHANNELS = listOf(
-        ChannelSpec(CHANNEL_MISSED_CALL, "Missed Calls", "iPhone missed call alerts"),
-        ChannelSpec(CHANNEL_VOICEMAIL, "Voicemail", "iPhone voicemail notifications"),
+        ChannelSpec(CHANNEL_MISSED_CALL, "Missed Calls", "Phone missed call alerts"),
+        ChannelSpec(CHANNEL_VOICEMAIL, "Voicemail", "Phone voicemail notifications"),
         ChannelSpec(CHANNEL_SOCIAL, "Social", "Messages, social media notifications"),
         ChannelSpec(CHANNEL_SCHEDULE, "Schedule", "Calendar and reminder notifications"),
         ChannelSpec(CHANNEL_EMAIL, "Email", "Email notifications"),
@@ -68,7 +68,7 @@ object NotificationChannels {
         ChannelSpec(CHANNEL_BUSINESS, "Business & Finance", "Business and finance notifications"),
         ChannelSpec(CHANNEL_LOCATION, "Location", "Location-based notifications"),
         ChannelSpec(CHANNEL_ENTERTAINMENT, "Entertainment", "Entertainment notifications"),
-        ChannelSpec(CHANNEL_OTHER, "Other", "Other iPhone notifications")
+        ChannelSpec(CHANNEL_OTHER, "Other", "Other phone notifications")
     )
 
     fun createAll(context: Context, vibrate: Boolean) {

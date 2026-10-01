@@ -107,11 +107,11 @@ fun NowPlayingScreen(media: AmsMediaManager?) {
             when {
                 !state.available -> EmptyState(
                     title = "Media unavailable",
-                    detail = "Connect to your iPhone first"
+                    detail = "Connect to your phone first"
                 )
                 !state.hasPlayer -> EmptyState(
                     title = "Nothing playing",
-                    detail = "Start music on your iPhone"
+                    detail = "Start music on your phone"
                 )
                 else -> PlayerControls(state = state, media = media)
             }

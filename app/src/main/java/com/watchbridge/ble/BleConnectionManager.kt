@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import no.nordicsemi.android.ble.BleManager
+import java.util.UUID
 
 /**
  * Manages the BLE GATT client connection to an iPhone using Nordic BLE Library.
@@ -39,6 +40,10 @@ class BleConnectionManager(
         private const val TAG = "BleConnectionManager"
         private const val DESIRED_MTU = 256
         private const val BOND_TIMEOUT_MS = 30_000L
+
+        // Standard Battery Service, which iOS offers to bonded accessories
+        private val BATTERY_SERVICE_UUID = UUID.fromString("0000180f-0000-1000-8000-00805f9b34fb")
+        private val BATTERY_LEVEL_UUID = UUID.fromString("00002a19-0000-1000-8000-00805f9b34fb")
     }
 
     enum class ConnectionState {
@@ -69,6 +74,10 @@ class BleConnectionManager(
     private var amsRemoteCommandChar: BluetoothGattCharacteristic? = null
     private var amsEntityUpdateChar: BluetoothGattCharacteristic? = null
     private var amsEntityAttributeChar: BluetoothGattCharacteristic? = null
+
+    /** The iPhone's battery level in percent, or null when unknown (not connected). */
+    private val _phoneBattery = MutableStateFlow<Int?>(null)
+    val phoneBattery: StateFlow<Int?> = _phoneBattery.asStateFlow()
 
     private var onAmsReady: (() -> Unit)? = null
     private var onAmsRemoteCommands: ((ByteArray) -> Unit)? = null
@@ -346,8 +355,32 @@ class BleConnectionManager(
                 .enqueue()
         }
 
-        // Queued after ANCS, so notifications work even if AMS fails
+        // Queued after ANCS, so notifications work even if these fail
         setupAms()
+        setupBattery()
+    }
+
+    /** Read the iPhone's battery level and follow its changes. Optional, like AMS. */
+    private fun setupBattery() {
+        val level = currentGatt?.getService(BATTERY_SERVICE_UUID)?.getCharacteristic(BATTERY_LEVEL_UUID)
+        if (level == null) {
+            Log.i(TAG, "iPhone battery level not available")
+            return
+        }
+
+        val onLevel = { bytes: ByteArray? ->
+            bytes?.firstOrNull()?.let { _phoneBattery.value = it.toInt() and 0xFF }
+        }
+        setNotificationCallback(level).with { _, data -> onLevel(data.value) }
+        readCharacteristic(level)
+            .with { _, data -> onLevel(data.value) }
+            .fail { _, status -> Log.w(TAG, "iPhone battery read failed: $status") }
+            .enqueue()
+        if (level.properties and BluetoothGattCharacteristic.PROPERTY_NOTIFY != 0) {
+            enableNotifications(level)
+                .fail { _, status -> Log.w(TAG, "iPhone battery notifications failed: $status") }
+                .enqueue()
+        }
     }
 
     /**
@@ -423,6 +456,7 @@ class BleConnectionManager(
         amsRemoteCommandChar = null
         amsEntityUpdateChar = null
         amsEntityAttributeChar = null
+        _phoneBattery.value = null
         currentGatt = null
         cancelBondTimeout()
         unregisterBondReceiver()

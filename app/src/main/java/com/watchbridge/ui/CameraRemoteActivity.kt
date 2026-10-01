@@ -142,10 +142,10 @@ private fun CameraRemoteScreen(
 
     val connected = status == CameraRemote.Status.CONNECTED
     val (statusText, statusColor) = when (status) {
-        CameraRemote.Status.CONNECTED -> "Open Camera on your iPhone" to StatusConnected
-        CameraRemote.Status.CONNECTING -> "Connecting to iPhone…" to StatusConnecting
+        CameraRemote.Status.CONNECTED -> "Open Camera on your phone" to StatusConnected
+        CameraRemote.Status.CONNECTING -> "Connecting to phone…" to StatusConnecting
         CameraRemote.Status.DISCONNECTED -> "Not connected · tap to retry" to StatusDisconnected
-        CameraRemote.Status.NO_IPHONE -> "No paired iPhone" to StatusDisconnected
+        CameraRemote.Status.NO_IPHONE -> "No paired phone" to StatusDisconnected
         CameraRemote.Status.UNSUPPORTED -> "Not supported on this watch" to StatusDisconnected
     }
 

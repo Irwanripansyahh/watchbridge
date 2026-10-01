@@ -98,6 +98,8 @@ class BondManager(private val context: Context) {
         return bluetoothManager.adapter?.bondedDevices?.any { it.address == address } == true
     }
 
+    fun isBluetoothEnabled(): Boolean = bluetoothManager.adapter?.isEnabled == true
+
     @SuppressLint("MissingPermission")
     fun getBondedDevice(): BluetoothDevice? {
         val address = getSavedBondedAddress() ?: return null

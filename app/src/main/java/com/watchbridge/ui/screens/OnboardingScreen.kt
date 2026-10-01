@@ -51,7 +51,7 @@ fun OnboardingScreen(
 
             item {
                 Text(
-                    text = "iPhone notifications\non your Galaxy Watch",
+                    text = "Phone notifications\non your Galaxy Watch",
                     style = MaterialTheme.typography.body2,
                     color = MaterialTheme.colors.onSurfaceVariant,
                     textAlign = TextAlign.Center,
@@ -71,8 +71,8 @@ fun OnboardingScreen(
 
             val steps = listOf(
                 "1" to "Grant Bluetooth permissions when prompted",
-                "2" to "Tap 'Connect' and select your iPhone from the scan list",
-                "3" to "Accept the pairing request on your iPhone",
+                "2" to "Tap 'Connect' and select your phone from the scan list",
+                "3" to "Accept the pairing request on your phone",
                 "4" to "Notifications will appear on your watch automatically"
             )
 
@@ -113,7 +113,7 @@ fun OnboardingScreen(
                     onClick = { },
                     label = {
                         Text(
-                            text = "Keep iPhone Bluetooth on and nearby for a stable connection",
+                            text = "Keep your phone's Bluetooth on and nearby for a stable connection",
                             style = MaterialTheme.typography.caption3,
                             color = Color(0xFFFFB74D),
                             maxLines = 3

@@ -1,10 +1,13 @@
 package com.watchbridge
 
 import android.Manifest
+import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.provider.Settings
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -91,6 +94,7 @@ class MainActivity : ComponentActivity() {
                                     navController.navigate("pairing")
                                 }
                             },
+                            onTurnOnBluetooth = { turnOnBluetooth() },
                             onDisconnect = {
                                 WatchBridgeService.stateMachine?.disconnect()
                             }
@@ -191,6 +195,25 @@ class MainActivity : ComponentActivity() {
                 sm.connectTo(device)
             } else {
                 Log.e(TAG, "Service state machine still null after 2s!")
+            }
+        }
+    }
+
+    /** One-tap "Turn on Bluetooth?" dialog, else the Bluetooth (or main) settings screen. */
+    private fun turnOnBluetooth() {
+        val actions = listOf(
+            BluetoothAdapter.ACTION_REQUEST_ENABLE,
+            Settings.ACTION_BLUETOOTH_SETTINGS,
+            Settings.ACTION_SETTINGS
+        )
+        for (action in actions) {
+            try {
+                startActivity(Intent(action))
+                return
+            } catch (e: ActivityNotFoundException) {
+                Log.w(TAG, "No screen for $action")
+            } catch (e: SecurityException) {
+                Log.w(TAG, "Not allowed: $action")
             }
         }
     }

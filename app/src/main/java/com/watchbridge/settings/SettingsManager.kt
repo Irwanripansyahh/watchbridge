@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import com.watchbridge.ancs.AncsConstants
 import com.watchbridge.notification.NotificationChannels
+import com.watchbridge.tile.ConnectionTileService
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -22,6 +23,7 @@ class SettingsManager(context: Context) {
         private const val KEY_RESPECT_DND = "respect_dnd"
         private const val KEY_SHOW_PRE_EXISTING = "show_pre_existing"
         private const val KEY_SHOW_SILENT = "show_silent"
+        private const val KEY_SHOW_PHONE_INFO = "show_phone_info"
         private const val KEY_CATEGORY_PREFIX = "category_enabled_"
     }
 
@@ -41,6 +43,16 @@ class SettingsManager(context: Context) {
 
     private val _showSilent = MutableStateFlow(prefs.getBoolean(KEY_SHOW_SILENT, false))
     val showSilent: StateFlow<Boolean> = _showSilent.asStateFlow()
+
+    private val _showPhoneInfo = MutableStateFlow(prefs.getBoolean(KEY_SHOW_PHONE_INFO, true))
+    val showPhoneInfo: StateFlow<Boolean> = _showPhoneInfo.asStateFlow()
+
+    /**
+     * Phone name and battery on the connection tile. Read straight from SharedPreferences,
+     * like [isVibrationEnabled], since the tile uses its own SettingsManager instance.
+     */
+    val isPhoneInfoShown: Boolean
+        get() = prefs.getBoolean(KEY_SHOW_PHONE_INFO, true)
 
     val isOnboardingComplete: Boolean
         get() = prefs.getBoolean(KEY_ONBOARDING_COMPLETE, false)
@@ -75,6 +87,12 @@ class SettingsManager(context: Context) {
     fun setShowSilent(enabled: Boolean) {
         prefs.edit().putBoolean(KEY_SHOW_SILENT, enabled).apply()
         _showSilent.value = enabled
+    }
+
+    fun setShowPhoneInfo(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_SHOW_PHONE_INFO, enabled).apply()
+        _showPhoneInfo.value = enabled
+        ConnectionTileService.requestUpdate(appContext)
     }
 
     /**

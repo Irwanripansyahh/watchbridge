@@ -10,6 +10,7 @@ class WatchBridgeApp : Application() {
 
     companion object {
         const val SERVICE_CHANNEL_ID = "watchbridge_service"
+        const val CONNECTION_ALERTS_CHANNEL_ID = "watchbridge_connection_alerts"
     }
 
     override fun onCreate() {
@@ -28,7 +29,16 @@ class WatchBridgeApp : Application() {
             setShowBadge(false)
         }
 
+        val alerts = NotificationChannel(
+            CONNECTION_ALERTS_CHANNEL_ID,
+            "Connection alerts",
+            NotificationManager.IMPORTANCE_DEFAULT
+        ).apply {
+            description = "Problems that stop phone notifications, like Bluetooth being off"
+            setShowBadge(false)
+        }
+
         val nm = getSystemService(NotificationManager::class.java)
-        nm.createNotificationChannel(channel)
+        nm.createNotificationChannels(listOf(channel, alerts))
     }
 }

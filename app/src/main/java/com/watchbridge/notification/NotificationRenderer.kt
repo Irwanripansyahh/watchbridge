@@ -96,7 +96,7 @@ class NotificationRenderer(
             val builder = NotificationCompat.Builder(context, channelFor(event.categoryId))
                 .setSmallIcon(NotificationIcons.iconForCategory(event.categoryId))
                 .setContentTitle(event.categoryName)
-                .setContentText("Open your iPhone to read it")
+                .setContentText("Open your phone to read it")
                 .setAutoCancel(true)
 
             builder.priority = NotificationCompat.PRIORITY_HIGH

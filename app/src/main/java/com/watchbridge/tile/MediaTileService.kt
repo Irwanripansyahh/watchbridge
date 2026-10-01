@@ -228,7 +228,7 @@ class MediaTileService : TileService() {
             )
             .addContent(
                 text(
-                    if (state.available) "Start music on your iPhone" else "Open WatchBridge to connect",
+                    if (state.available) "Start music on your phone" else "Open WatchBridge to connect",
                     Typography.TYPOGRAPHY_CAPTION2,
                     COLOR_DETAIL
                 )

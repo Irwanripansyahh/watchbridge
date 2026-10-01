@@ -45,6 +45,7 @@ fun SettingsScreen(settings: SettingsManager) {
     val respectDnd by settings.respectDnd.collectAsState()
     val showPreExisting by settings.showPreExisting.collectAsState()
     val showSilent by settings.showSilent.collectAsState()
+    val showPhoneInfo by settings.showPhoneInfo.collectAsState()
 
     val categoryFilters = settings.getAllCategoryFilters()
     val listState = rememberScalingLazyListState()
@@ -171,6 +172,15 @@ fun SettingsScreen(settings: SettingsManager) {
                     secondaryLabel = "Show silenced notifications",
                     checked = showSilent,
                     onCheckedChange = { settings.setShowSilent(it) }
+                )
+            }
+
+            item {
+                SettingsToggle(
+                    label = "Phone info on tile",
+                    secondaryLabel = "Phone name and battery on the Phone connection tile",
+                    checked = showPhoneInfo,
+                    onCheckedChange = { settings.setShowPhoneInfo(it) }
                 )
             }
 
