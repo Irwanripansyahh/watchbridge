@@ -71,7 +71,8 @@ iPhone notifications arrive as regular Wear OS notifications, so they look and b
 - **Chats as conversations:** for messaging apps (iOS "Social" category), all messages from one chat share a single card in the Wear OS chat layout, showing who sent what. Group chats are titled with the group name. Swiping the conversation away clears all of its messages on the iPhone.
 - **Action buttons:** when iOS offers actions for a notification (e.g. *Clear*, *Accept*, *Decline*), they appear as buttons under it.
 - **Dismissal sync:** dismissing on the watch dismisses on the iPhone; when you read or clear a notification on the iPhone, it disappears from the watch.
-- **Bursts of notifications:** when many arrive at once (a busy group chat, or everything that piled up while the watch was away), each one still loads its full content. If the iPhone doesn't answer, the watch asks again; if it still can't get the content, the notification says *Open your iPhone to read it* instead of staying on *Loading...*.
+- **Stays until you clear it:** notifications are only removed when you clear them, on the watch or the iPhone. They stay when the iPhone goes out of range or WatchBridge restarts (e.g. after an update). Only call screens close when the connection drops.
+- **Bursts of notifications:** when many arrive at once (a busy group chat, or everything that piled up while the watch was away), each one still loads its full content. A notification only appears once its content is in — usually well under a second — so there are no half-loaded placeholders. If the iPhone doesn't answer, the watch asks again; if it still can't get the content, the notification says *Open your iPhone to read it*.
 
 ### Calls
 

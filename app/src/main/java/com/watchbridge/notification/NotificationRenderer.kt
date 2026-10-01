@@ -82,37 +82,22 @@ class NotificationRenderer(
     private val uidToGroup = mutableMapOf<UInt, AppGroup>()
 
     /**
-     * Show a basic notification from a Notification Source event (before attributes are fetched).
-     * Used as a placeholder until full attributes arrive.
-     */
-    fun showBasicNotification(event: AncsNotificationEvent) {
-        // Silent: the watch should only buzz and peek once, when the real content arrives
-        postPlaceholder(event, text = "Loading...", silent = true)
-    }
-
-    /**
      * The iPhone never sent this notification's content (even after retries). Still let the
-     * user know something arrived, instead of leaving "Loading..." forever.
+     * user know something arrived.
      */
     fun showUnavailableNotification(event: AncsNotificationEvent) {
-        postPlaceholder(event, text = "Open your iPhone to read it", silent = false)
-    }
-
-    private fun postPlaceholder(event: AncsNotificationEvent, text: String, silent: Boolean) {
         if (event.isSilent) return
 
-        // Under the lock, so it can't land on top of the real content rendered meanwhile
         synchronized(lock) {
-            // Already showing real content (ANCS "modified" event): keep it until the update arrives
+            // Real content made it after all (e.g. a late response): keep it
             val uid = event.notificationUid
             if (uid in uidToConversation || uid in uidToGroup) return
 
             val builder = NotificationCompat.Builder(context, channelFor(event.categoryId))
                 .setSmallIcon(NotificationIcons.iconForCategory(event.categoryId))
                 .setContentTitle(event.categoryName)
-                .setContentText(text)
+                .setContentText("Open your iPhone to read it")
                 .setAutoCancel(true)
-                .setSilent(silent)
 
             builder.priority = NotificationCompat.PRIORITY_HIGH
 
@@ -260,7 +245,7 @@ class NotificationRenderer(
         conversation.latestAttrs = attrs
         uidToConversation[uid] = conversation
 
-        // The conversation card replaces this message's "Loading..." placeholder
+        // The conversation card replaces this message's own card, if it had one
         notificationManager.cancel(uidToNotifId(uid))
         postConversation(conversation, alert = true)
         group.members += conversation.notifId
@@ -410,19 +395,6 @@ class NotificationRenderer(
             val notifId = uidToNotifId(notificationUid)
             notificationManager.cancel(notifId)
             uidToGroup.remove(notificationUid)?.let { leaveGroup(it, notifId) }
-        }
-    }
-
-    /**
-     * Cancel all WatchBridge notifications (e.g., on disconnect).
-     */
-    fun cancelAll() {
-        synchronized(lock) {
-            notificationManager.cancelAll()
-            groups.clear()
-            conversations.clear()
-            uidToConversation.clear()
-            uidToGroup.clear()
         }
     }
 

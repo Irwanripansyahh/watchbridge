@@ -24,7 +24,9 @@ class AncsSessionManager {
     private val _sessionState = MutableStateFlow(SessionState.DISCONNECTED)
     val sessionState: StateFlow<SessionState> = _sessionState.asStateFlow()
 
-    private val _events = MutableSharedFlow<AncsNotificationEvent>(extraBufferCapacity = 64)
+    // A bounded buffer drops events in a burst (tryEmit fails once it's full), and e.g. a
+    // lost "Removed" leaves a stale notification on the watch
+    private val _events = MutableSharedFlow<AncsNotificationEvent>(extraBufferCapacity = Int.MAX_VALUE)
     val events: SharedFlow<AncsNotificationEvent> = _events.asSharedFlow()
 
     private val _eventLog = MutableStateFlow<List<String>>(emptyList())

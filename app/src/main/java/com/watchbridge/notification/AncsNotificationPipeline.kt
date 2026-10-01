@@ -48,7 +48,9 @@ class AncsNotificationPipeline(
     }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-    private val attributeRequestQueue = Channel<AncsNotificationEvent>(Channel.BUFFERED)
+    // Unlimited: a burst of notifications (e.g. pre-existing ones on connect) must never be
+    // dropped, or they'd never be requested
+    private val attributeRequestQueue = Channel<AncsNotificationEvent>(Channel.UNLIMITED)
     private val pendingEvents = ConcurrentHashMap<UInt, AncsNotificationEvent>()
 
     /** UIDs whose attributes haven't arrived yet → retries used so far. */
@@ -98,10 +100,8 @@ class AncsNotificationPipeline(
                     return
                 }
 
-                // Show placeholder immediately (except calls)
-                if (!callHandler.isCallCategory(event.categoryId)) {
-                    renderer.showBasicNotification(event)
-                }
+                // Nothing is shown until the content arrives (usually well under a second):
+                // a "Loading..." placeholder could get stuck if the content never came.
                 pendingEvents[event.notificationUid] = event
                 awaitingAttributes[event.notificationUid] = 0
                 attributeRequestQueue.trySend(event)
@@ -162,7 +162,7 @@ class AncsNotificationPipeline(
         connectionManager.writeControlPoint(command)
         Log.d(TAG, "Requested attributes for uid=${event.notificationUid}")
 
-        // A lost or garbled response would leave the notification stuck on "Loading...": ask again
+        // A lost or garbled response would mean the notification never shows up: ask again
         scope.launch {
             delay(ATTRIBUTE_TIMEOUT_MS)
             val uid = event.notificationUid
@@ -250,10 +250,13 @@ class AncsNotificationPipeline(
         Log.i(TAG, "Performed action $actionId on uid=$notificationUid")
     }
 
+    /**
+     * Notifications stay on the watch until the user clears them (here or on the iPhone),
+     * even while the iPhone is out of range. Only call screens go: their state is unknown now.
+     */
     fun onDisconnected() {
         pendingEvents.clear()
         awaitingAttributes.clear()
-        renderer.cancelAll()
         callHandler.cancelIncomingCall()
         callHandler.cancelActiveCall()
     }
