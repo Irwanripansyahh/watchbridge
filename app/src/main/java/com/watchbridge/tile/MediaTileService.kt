@@ -13,7 +13,6 @@ import androidx.wear.protolayout.material.Button
 import androidx.wear.protolayout.material.ButtonDefaults
 import androidx.wear.protolayout.material.Text
 import androidx.wear.protolayout.material.Typography
-import androidx.wear.protolayout.material.layouts.MultiButtonLayout
 import androidx.wear.protolayout.material.layouts.PrimaryLayout
 import androidx.wear.tiles.RequestBuilders
 import androidx.wear.tiles.TileBuilders
@@ -57,6 +56,11 @@ class MediaTileService : TileService() {
 
         /** Below this screen height the artist line is left out to make room for volume. */
         private const val MIN_HEIGHT_FOR_ARTIST_DP = 200
+
+        // Compact sizes, so the track, the play controls and the volume row all fit
+        private const val SKIP_BUTTON_DP = 36f
+        private const val PLAY_BUTTON_DP = 44f
+        private const val VOLUME_BUTTON_DP = 28f
 
         private const val COLOR_PRIMARY = 0xFF4FC3F7.toInt()
         private const val COLOR_TEXT = 0xFFFFFFFF.toInt()
@@ -145,11 +149,13 @@ class MediaTileService : TileService() {
         // Until iOS says which commands the player supports, offer them all
         fun supported(command: Byte) = state.supportedCommands.isEmpty() || state.supports(command)
 
-        val buttons = MultiButtonLayout.Builder()
+        val buttons = LayoutElementBuilders.Row.Builder()
+            .setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_CENTER)
         if (supported(AmsConstants.COMMAND_PREVIOUS_TRACK)) {
-            buttons.addButtonContent(button(ID_PREVIOUS, ICON_PREVIOUS, "Previous", primary = false))
+            buttons.addContent(button(ID_PREVIOUS, ICON_PREVIOUS, "Previous", primary = false))
+            buttons.addContent(horizontalSpace(8f))
         }
-        buttons.addButtonContent(
+        buttons.addContent(
             button(
                 ID_PLAY_PAUSE,
                 if (state.isPlaying) ICON_PAUSE else ICON_PLAY,
@@ -158,7 +164,8 @@ class MediaTileService : TileService() {
             )
         )
         if (supported(AmsConstants.COMMAND_NEXT_TRACK)) {
-            buttons.addButtonContent(button(ID_NEXT, ICON_NEXT, "Next", primary = false))
+            buttons.addContent(horizontalSpace(8f))
+            buttons.addContent(button(ID_NEXT, ICON_NEXT, "Next", primary = false))
         }
 
         return LayoutElementBuilders.Column.Builder()
@@ -166,7 +173,7 @@ class MediaTileService : TileService() {
                 // Tapping the track opens the full player (volume, progress)
                 LayoutElementBuilders.Column.Builder()
                     .setModifiers(ModifiersBuilders.Modifiers.Builder().setClickable(openApp).build())
-                    .addContent(text(state.title.ifEmpty { state.playerName }, Typography.TYPOGRAPHY_TITLE3, COLOR_TEXT))
+                    .addContent(text(state.title.ifEmpty { state.playerName }, Typography.TYPOGRAPHY_BODY1, COLOR_TEXT))
                     .apply {
                         if (showArtist && state.artist.isNotEmpty()) {
                             addContent(text(state.artist, Typography.TYPOGRAPHY_CAPTION2, COLOR_DETAIL))
@@ -176,7 +183,7 @@ class MediaTileService : TileService() {
             )
             .addContent(LayoutElementBuilders.Spacer.Builder().setHeight(dp(4f)).build())
             .addContent(buttons.build())
-            .addContent(LayoutElementBuilders.Spacer.Builder().setHeight(dp(4f)).build())
+            .addContent(LayoutElementBuilders.Spacer.Builder().setHeight(dp(2f)).build())
             .addContent(volumeRow(state, ::supported))
             .build()
     }
@@ -191,7 +198,7 @@ class MediaTileService : TileService() {
         if (supported(AmsConstants.COMMAND_VOLUME_DOWN)) {
             row.addContent(smallButton(ID_VOLUME_DOWN, ICON_VOLUME_DOWN, "Volume down"))
         }
-        row.addContent(LayoutElementBuilders.Spacer.Builder().setWidth(dp(8f)).build())
+        row.addContent(horizontalSpace(8f))
         row.addContent(
             text(
                 state.volume?.let { "${(it * 100).roundToInt()}%" } ?: "Vol",
@@ -199,7 +206,7 @@ class MediaTileService : TileService() {
                 COLOR_DETAIL
             )
         )
-        row.addContent(LayoutElementBuilders.Spacer.Builder().setWidth(dp(8f)).build())
+        row.addContent(horizontalSpace(8f))
         if (supported(AmsConstants.COMMAND_VOLUME_UP)) {
             row.addContent(smallButton(ID_VOLUME_UP, ICON_VOLUME_UP, "Volume up"))
         }
@@ -235,20 +242,26 @@ class MediaTileService : TileService() {
             .setMaxLines(1)
             .build()
 
-    private fun button(id: String, icon: String, description: String, primary: Boolean): Button =
-        Button.Builder(this, loadClickable(id))
-            .setIconContent(icon)
+    private fun button(id: String, icon: String, description: String, primary: Boolean): Button {
+        val size = if (primary) PLAY_BUTTON_DP else SKIP_BUTTON_DP
+        return Button.Builder(this, loadClickable(id))
+            .setIconContent(icon, dp(size / 2))
+            .setSize(dp(size))
             .setContentDescription(description)
             .setButtonColors(if (primary) ButtonDefaults.PRIMARY_COLORS else ButtonDefaults.SECONDARY_COLORS)
             .build()
+    }
 
     private fun smallButton(id: String, icon: String, description: String): Button =
         Button.Builder(this, loadClickable(id))
-            .setIconContent(icon, dp(16f))
-            .setSize(dp(32f))
+            .setIconContent(icon, dp(14f))
+            .setSize(dp(VOLUME_BUTTON_DP))
             .setContentDescription(description)
             .setButtonColors(ButtonDefaults.SECONDARY_COLORS)
             .build()
+
+    private fun horizontalSpace(widthDp: Float): LayoutElementBuilders.Spacer =
+        LayoutElementBuilders.Spacer.Builder().setWidth(dp(widthDp)).build()
 
     /** Tapping reloads the tile with [id] as the last clicked id; see [onTileRequest]. */
     private fun loadClickable(id: String): ModifiersBuilders.Clickable =
