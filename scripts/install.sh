@@ -9,7 +9,7 @@ APK="$(ls -1 "$SCRIPT_DIR"/watchbridge-*.apk 2>/dev/null | head -1 || true)"
 
 if [ -z "$APK" ]; then
   echo "Could not find watchbridge-*.apk next to this script."
-  echo "Download the APK from https://github.com/rajtiwariee/watchbridge/releases/latest"
+  echo "Download the APK from https://github.com/Irwanripansyahh/watchbridge/releases/latest"
   echo "and place it in the same folder as this script."
   exit 1
 fi

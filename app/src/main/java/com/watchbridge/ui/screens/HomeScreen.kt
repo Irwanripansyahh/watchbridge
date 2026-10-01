@@ -22,12 +22,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.wear.compose.foundation.lazy.AutoCenteringParams
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
@@ -38,6 +40,7 @@ import androidx.wear.compose.material.Icon
 import androidx.wear.compose.material.MaterialTheme
 import androidx.wear.compose.material.Text
 import com.watchbridge.R
+import com.watchbridge.ams.AmsMediaManager
 import com.watchbridge.ble.ConnectionStateMachine
 import com.watchbridge.service.WatchBridgeService
 import com.watchbridge.ui.components.WatchBridgeScaffold
@@ -46,15 +49,20 @@ import com.watchbridge.ui.theme.StatusConnecting
 import com.watchbridge.ui.theme.StatusDisconnected
 import com.watchbridge.ui.theme.StatusIdle
 import com.watchbridge.ui.theme.SurfaceCard
+import kotlinx.coroutines.flow.MutableStateFlow
 
 @Composable
 fun HomeScreen(
     onNavigateToPairing: () -> Unit,
     onNavigateToSettings: () -> Unit,
+    onNavigateToMedia: () -> Unit,
+    onReconnect: () -> Unit,
     onDisconnect: () -> Unit
 ) {
     val sm = WatchBridgeService.stateMachine
     val session = WatchBridgeService.sessionManager
+    val noMedia = remember { MutableStateFlow(AmsMediaManager.MediaState()) }
+    val media by (WatchBridgeService.mediaManager?.state ?: noMedia).collectAsState()
 
     val smState by (sm?.state
         ?: kotlinx.coroutines.flow.MutableStateFlow(ConnectionStateMachine.State.IDLE))
@@ -89,7 +97,41 @@ fun HomeScreen(
             // Action button
             item {
                 Spacer(Modifier.height(8.dp))
-                ActionChip(smState = smState, onNavigateToPairing = onNavigateToPairing, onDisconnect = onDisconnect)
+                ActionChip(
+                    smState = smState,
+                    onNavigateToPairing = onNavigateToPairing,
+                    onReconnect = onReconnect,
+                    onDisconnect = onDisconnect
+                )
+            }
+
+            // iPhone media controls
+            item {
+                Spacer(Modifier.height(4.dp))
+                Chip(
+                    onClick = onNavigateToMedia,
+                    label = { Text("Now Playing") },
+                    secondaryLabel = {
+                        Text(
+                            text = when {
+                                media.title.isNotEmpty() -> media.title
+                                media.hasPlayer -> media.playerName
+                                else -> "Control iPhone music"
+                            },
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    },
+                    icon = {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_music_note),
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    },
+                    colors = ChipDefaults.secondaryChipColors(),
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
 
             // Settings chip
@@ -124,7 +166,8 @@ private fun StatusCard(smState: ConnectionStateMachine.State, activeCount: Int) 
         ConnectionStateMachine.State.DISCONNECTED -> Triple("Disconnected", StatusDisconnected, false)
         ConnectionStateMachine.State.WAITING_TO_RECONNECT -> Triple("Reconnecting soon...", Color(0xFFFFB74D), true)
         ConnectionStateMachine.State.RECONNECTING -> Triple("Reconnecting...", StatusConnecting, true)
-        ConnectionStateMachine.State.FAILED -> Triple("Connection Failed", StatusDisconnected, false)
+        ConnectionStateMachine.State.WAITING_FOR_PHONE -> Triple("Waiting for iPhone", Color(0xFFFFB74D), true)
+        ConnectionStateMachine.State.FAILED -> Triple("Not Paired", StatusDisconnected, false)
     }
 
     val dotAlpha = if (isPulsing) {
@@ -189,6 +232,7 @@ private fun StatusCard(smState: ConnectionStateMachine.State, activeCount: Int) 
 private fun ActionChip(
     smState: ConnectionStateMachine.State,
     onNavigateToPairing: () -> Unit,
+    onReconnect: () -> Unit,
     onDisconnect: () -> Unit
 ) {
     when (smState) {
@@ -223,10 +267,12 @@ private fun ActionChip(
                 modifier = Modifier.fillMaxWidth()
             )
         }
-        ConnectionStateMachine.State.DISCONNECTED -> {
+        ConnectionStateMachine.State.DISCONNECTED,
+        ConnectionStateMachine.State.WAITING_TO_RECONNECT,
+        ConnectionStateMachine.State.WAITING_FOR_PHONE -> {
             Chip(
-                onClick = onNavigateToPairing,
-                label = { Text("Reconnect") },
+                onClick = onReconnect,
+                label = { Text("Reconnect now") },
                 icon = {
                     Icon(
                         painter = painterResource(R.drawable.ic_bluetooth),

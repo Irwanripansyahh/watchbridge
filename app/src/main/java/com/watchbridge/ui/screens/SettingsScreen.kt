@@ -61,7 +61,7 @@ fun SettingsScreen(settings: SettingsManager) {
             item {
                 SettingsToggle(
                     label = "Vibration",
-                    secondaryLabel = "Vibrate for notifications",
+                    secondaryLabel = "Vibrate for notifications (calls always vibrate)",
                     checked = vibration,
                     onCheckedChange = { settings.setVibrationEnabled(it) }
                 )

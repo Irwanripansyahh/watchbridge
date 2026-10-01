@@ -2,6 +2,9 @@ package com.watchbridge.ancs
 
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import java.text.ParseException
+import java.text.SimpleDateFormat
+import java.util.Locale
 
 /**
  * Parses fragmented Data Source responses into structured notification attributes.
@@ -29,7 +32,20 @@ class AncsAttributeParser {
         val date: String? = null,
         val positiveActionLabel: String? = null,
         val negativeActionLabel: String? = null
-    )
+    ) {
+        /**
+         * When the notification was posted on the iPhone, in epoch millis. ANCS sends it as
+         * "yyyyMMdd'T'HHmmSS" in the iPhone's local time, which matches the watch's time zone.
+         */
+        val timestampMillis: Long?
+            get() = date?.let {
+                try {
+                    SimpleDateFormat("yyyyMMdd'T'HHmmss", Locale.US).parse(it)?.time
+                } catch (_: ParseException) {
+                    null
+                }
+            }
+    }
 
     data class AppAttributes(
         val appIdentifier: String,

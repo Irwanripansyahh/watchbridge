@@ -23,7 +23,9 @@ import kotlin.math.min
  *            WAITING ← DISCONNECTED
  *
  * On disconnect, waits with exponential backoff then auto-reconnects to the
- * bonded device. Resets backoff on successful READY state.
+ * bonded device. Resets backoff on successful READY state. Once the quick attempts are
+ * used up (iPhone left behind, out of range), it never gives up: it hands over to
+ * Android's low-power background connect, which reconnects when the iPhone is back.
  */
 class ConnectionStateMachine(
     private val connectionManager: BleConnectionManager,
@@ -35,7 +37,8 @@ class ConnectionStateMachine(
         private const val INITIAL_BACKOFF_MS = 1_000L
         private const val MAX_BACKOFF_MS = 60_000L
         private const val BACKOFF_MULTIPLIER = 2.0
-        private const val MAX_RECONNECT_ATTEMPTS = 20
+        /** Quick attempts (~5 minutes) before switching to the background connect. */
+        private const val MAX_RECONNECT_ATTEMPTS = 8
         private const val QUICK_RECONNECT_THRESHOLD_MS = 5_000L
         private const val BOND_GRACE_PERIOD_MS = 35_000L
     }
@@ -49,6 +52,9 @@ class ConnectionStateMachine(
         DISCONNECTED,
         WAITING_TO_RECONNECT,
         RECONNECTING,
+        /** iPhone out of range: Android connects in the background as soon as it's back. */
+        WAITING_FOR_PHONE,
+        /** No bonded iPhone to reconnect to; the user has to pair again. */
         FAILED
     }
 
@@ -85,11 +91,17 @@ class ConnectionStateMachine(
      */
     @SuppressLint("MissingPermission")
     fun connectTo(device: BluetoothDevice) {
+        if (_state.value == State.READY || _state.value == State.CONNECTED) {
+            Log.d(TAG, "Already connected, ignoring connect request")
+            return
+        }
         targetDevice = device
+        autoReconnectEnabled = true
         reconnectAttempt = 0
         currentBackoffMs = INITIAL_BACKOFF_MS
+        reconnectJob?.cancel()
         _state.value = State.CONNECTING
-        connectionManager.connectToDevice(device)
+        connectionManager.connectToDevice(device, onFailed = ::onConnectAttemptFailed)
         Log.i(TAG, "Connecting to ${device.name ?: device.address}")
     }
 
@@ -158,7 +170,10 @@ class ConnectionStateMachine(
     private fun handleConnectionStateChange(connState: BleConnectionManager.ConnectionState) {
         when (connState) {
             BleConnectionManager.ConnectionState.CONNECTING -> {
-                _state.value = State.CONNECTING
+                // A background connect stays "waiting" until the iPhone actually shows up
+                if (_state.value != State.WAITING_FOR_PHONE) {
+                    _state.value = State.CONNECTING
+                }
             }
 
             BleConnectionManager.ConnectionState.CONNECTED,
@@ -186,13 +201,23 @@ class ConnectionStateMachine(
 
             BleConnectionManager.ConnectionState.DISCONNECTED -> {
                 val previousState = _state.value
-                val wasReady = previousState == State.READY || previousState == State.CONNECTED
-                _state.value = State.DISCONNECTED
+                // Manual disconnect, or a failed attempt that already scheduled the next one
+                if (previousState == State.IDLE ||
+                    previousState == State.WAITING_TO_RECONNECT ||
+                    previousState == State.WAITING_FOR_PHONE
+                ) return
 
-                // Don't auto-reconnect if disconnect happened during bonding
-                // (user rejected pairing or bond timed out)
+                val wasReady = previousState == State.READY || previousState == State.CONNECTED
+                // If a failed attempt just scheduled a retry, keep showing that instead
+                if (!_state.compareAndSet(previousState, State.DISCONNECTED)) return
+
+                // Don't auto-reconnect if disconnect happened during first-time pairing
+                // (user rejected pairing or bond timed out). An already bonded iPhone
+                // dropping right after connecting is just flaky range: reconnect.
                 val timeSinceConnected = System.currentTimeMillis() - lastConnectedTimestamp
-                val wasBonding = timeSinceConnected < BOND_GRACE_PERIOD_MS && previousState == State.CONNECTED
+                val wasBonding = timeSinceConnected < BOND_GRACE_PERIOD_MS &&
+                    previousState == State.CONNECTED &&
+                    !isPairedIphone(targetDevice)
 
                 if (wasBonding) {
                     Log.i(TAG, "Disconnect during bonding phase — not auto-reconnecting")
@@ -217,6 +242,28 @@ class ConnectionStateMachine(
         }
     }
 
+    /**
+     * A connection attempt failed (iPhone out of range, Bluetooth busy, ...). Keep trying as
+     * long as there's a bonded iPhone; a first-time pairing that fails is left to the user.
+     */
+    private fun onConnectAttemptFailed() {
+        if (!autoReconnectEnabled) return
+        val device = targetDevice ?: bondManager.getBondedDevice()
+        if (!isPairedIphone(device)) return
+        scheduleReconnect()
+    }
+
+    /**
+     * The saved address also counts: with the watch's Bluetooth turned off the bond state
+     * reads as NONE, but we still want to reconnect once it's back on.
+     */
+    @SuppressLint("MissingPermission")
+    private fun isPairedIphone(device: BluetoothDevice?): Boolean =
+        device != null && (
+            device.bondState == BluetoothDevice.BOND_BONDED ||
+                device.address == bondManager.getSavedBondedAddress()
+            )
+
     private fun scheduleReconnect(delayMs: Long? = null) {
         if (!autoReconnectEnabled) {
             Log.d(TAG, "Auto-reconnect disabled, not reconnecting")
@@ -231,9 +278,19 @@ class ConnectionStateMachine(
             return
         }
 
+        reconnectJob?.cancel()
+
         if (reconnectAttempt >= MAX_RECONNECT_ATTEMPTS) {
-            Log.w(TAG, "Max reconnect attempts ($MAX_RECONNECT_ATTEMPTS) reached")
-            _state.value = State.FAILED
+            Log.i(TAG, "Quick reconnects used up — waiting for iPhone in the background")
+            _state.value = State.WAITING_FOR_PHONE
+            // The background connect has no timeout; if it still fails (e.g. Bluetooth was
+            // turned off), wait a bit before arming it again.
+            val wait = delayMs ?: if (reconnectAttempt == MAX_RECONNECT_ATTEMPTS) 0L else MAX_BACKOFF_MS
+            reconnectAttempt = MAX_RECONNECT_ATTEMPTS + 1
+            reconnectJob = scope.launch {
+                delay(wait)
+                connectionManager.connectInBackground(device, onFailed = ::onConnectAttemptFailed)
+            }
             return
         }
 
@@ -242,7 +299,6 @@ class ConnectionStateMachine(
         _state.value = State.WAITING_TO_RECONNECT
         Log.i(TAG, "Scheduling reconnect #${reconnectAttempt + 1} in ${actualDelay}ms")
 
-        reconnectJob?.cancel()
         reconnectJob = scope.launch {
             delay(actualDelay)
             reconnectAttempt++
@@ -251,7 +307,7 @@ class ConnectionStateMachine(
                 MAX_BACKOFF_MS
             )
             _state.value = State.RECONNECTING
-            connectionManager.connectToDevice(device)
+            connectionManager.connectToDevice(device, onFailed = ::onConnectAttemptFailed)
         }
     }
 }

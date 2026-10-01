@@ -9,6 +9,10 @@
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 
+    <!-- Downloading iPhone app icons from the App Store -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
     <!-- Notifications (Android 13+) -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
@@ -18,6 +22,9 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+
+    <!-- Restart the bridge after a reboot or app update -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <!-- Declare BLE feature -->
     <uses-feature android:name="android.hardware.bluetooth_le" android:required="true" />
@@ -45,16 +52,6 @@
         </activity>
 
         <activity
-            android:name=".ui.NotificationPopupActivity"
-            android:exported="false"
-            android:taskAffinity=""
-            android:showWhenLocked="true"
-            android:turnScreenOn="true"
-            android:excludeFromRecents="true"
-            android:noHistory="true"
-            android:launchMode="singleInstance" />
-
-        <activity
             android:name=".ui.IncomingCallActivity"
             android:exported="false"
             android:taskAffinity=""
@@ -77,6 +74,39 @@
             android:name=".service.WatchBridgeService"
             android:exported="false"
             android:foregroundServiceType="connectedDevice" />
+
+        <receiver
+            android:name=".service.BootReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Connection status tile -->
+        <service
+            android:name=".tile.ConnectionTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_bluetooth"
+            android:label="@string/tile_label"
+            android:permission="com.google.android.wearable.permission.BIND_TILE_PROVIDER">
+            <intent-filter>
+                <action android:name="androidx.wear.tiles.action.BIND_TILE_PROVIDER" />
+            </intent-filter>
+            <meta-data
+                android:name="androidx.wear.tiles.PREVIEW"
+                android:resource="@drawable/ic_launcher" />
+        </service>
+
+        <!-- Launched by the tile's Reconnect chip; tiles can only start activities -->
+        <activity
+            android:name=".tile.ReconnectActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.NoDisplay" />
     </application>
 
 </manifest>

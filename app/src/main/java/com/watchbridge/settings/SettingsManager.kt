@@ -3,6 +3,7 @@ package com.watchbridge.settings
 import android.content.Context
 import android.content.SharedPreferences
 import com.watchbridge.ancs.AncsConstants
+import com.watchbridge.notification.NotificationChannels
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -24,6 +25,7 @@ class SettingsManager(context: Context) {
         private const val KEY_CATEGORY_PREFIX = "category_enabled_"
     }
 
+    private val appContext = context.applicationContext
     private val prefs: SharedPreferences =
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
@@ -47,9 +49,17 @@ class SettingsManager(context: Context) {
         prefs.edit().putBoolean(KEY_ONBOARDING_COMPLETE, true).apply()
     }
 
+    /**
+     * Read straight from SharedPreferences (shared by every SettingsManager instance), so a
+     * change made from another instance is never missed when picking a notification channel.
+     */
+    val isVibrationEnabled: Boolean
+        get() = prefs.getBoolean(KEY_VIBRATION_ENABLED, true)
+
     fun setVibrationEnabled(enabled: Boolean) {
         prefs.edit().putBoolean(KEY_VIBRATION_ENABLED, enabled).apply()
         _vibrationEnabled.value = enabled
+        NotificationChannels.createAll(appContext, vibrate = enabled)
     }
 
     fun setRespectDnd(enabled: Boolean) {

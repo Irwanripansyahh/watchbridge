@@ -2,6 +2,7 @@ package com.watchbridge.notification
 
 import android.app.NotificationManager
 import android.content.Context
+import android.graphics.Bitmap
 import android.util.Log
 import com.watchbridge.ancs.AncsActionHandler
 import com.watchbridge.ancs.AncsAttributeParser
@@ -16,6 +17,8 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Orchestrates the full notification pipeline with filtering, DND respect,
@@ -28,17 +31,21 @@ class AncsNotificationPipeline(
     private val renderer: NotificationRenderer,
     private val callHandler: CallNotificationHandler,
     private val appNameResolver: AppNameResolver,
+    private val appIconResolver: AppIconResolver,
     private val settings: SettingsManager
 ) {
 
     companion object {
         private const val TAG = "AncsNotifPipeline"
         private const val REQUEST_DELAY_MS = 100L
+
+        /** How long a first-time app's notification waits for its icon to download. */
+        private const val ICON_WAIT_MS = 3000L
     }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val attributeRequestQueue = Channel<AncsNotificationEvent>(Channel.BUFFERED)
-    private val pendingEvents = mutableMapOf<UInt, AncsNotificationEvent>()
+    private val pendingEvents = ConcurrentHashMap<UInt, AncsNotificationEvent>()
 
     private val notificationManager =
         context.getSystemService(NotificationManager::class.java)
@@ -171,13 +178,29 @@ class AncsNotificationPipeline(
                 AncsConstants.CATEGORY_ACTIVE_CALL ->
                     callHandler.showActiveCall(event, attrs)
             }
-        } else {
-            renderer.showFullNotification(event, attrs, appDisplayName)
+            pendingEvents.remove(attrs.notificationUid)
+            Log.d(TAG, "Rendered call uid=${attrs.notificationUid}: ${attrs.title}")
+            return
         }
 
-        pendingEvents.remove(attrs.notificationUid)
-        Log.d(TAG, "Rendered notification uid=${attrs.notificationUid}: ${attrs.title}")
+        scope.launch {
+            val appIcon = appId?.let { resolveAppIcon(it) }
+
+            // iOS may have removed or modified the notification while we waited for the icon
+            if (!pendingEvents.remove(attrs.notificationUid, event)) return@launch
+
+            renderer.showFullNotification(event, attrs, appDisplayName, appIcon)
+            Log.d(TAG, "Rendered notification uid=${attrs.notificationUid}: ${attrs.title}")
+        }
     }
+
+    /**
+     * Cached icons come back immediately. An app we haven't seen before gets a short grace
+     * period to download; if that runs out we show the notification without an icon and the
+     * download keeps going in the background for next time.
+     */
+    private suspend fun resolveAppIcon(appId: String): Bitmap? =
+        withTimeoutOrNull(ICON_WAIT_MS) { appIconResolver.getIcon(appId) }
 
     private fun onAppAttributesReceived(attrs: AncsAttributeParser.AppAttributes) {
         val displayName = attrs.displayName

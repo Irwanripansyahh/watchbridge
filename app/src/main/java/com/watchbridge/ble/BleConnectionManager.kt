@@ -12,6 +12,7 @@ import android.content.IntentFilter
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
+import com.watchbridge.ams.AmsConstants
 import com.watchbridge.ancs.AncsConstants
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -28,6 +29,7 @@ import no.nordicsemi.android.ble.BleManager
  * 4. After bonding, re-discover services to find ANCS
  * 5. Subscribe to Notification Source & Data Source
  * 6. Connection READY
+ * 7. Subscribe to Apple Media Service (optional, for media controls)
  */
 class BleConnectionManager(
     context: Context
@@ -62,6 +64,15 @@ class BleConnectionManager(
 
     private var onNotificationSource: ((ByteArray) -> Unit)? = null
     private var onDataSource: ((ByteArray) -> Unit)? = null
+
+    // Apple Media Service (optional — media controls only)
+    private var amsRemoteCommandChar: BluetoothGattCharacteristic? = null
+    private var amsEntityUpdateChar: BluetoothGattCharacteristic? = null
+    private var amsEntityAttributeChar: BluetoothGattCharacteristic? = null
+
+    private var onAmsReady: (() -> Unit)? = null
+    private var onAmsRemoteCommands: ((ByteArray) -> Unit)? = null
+    private var onAmsEntityUpdate: ((ByteArray) -> Unit)? = null
 
     override fun log(priority: Int, message: String) {
         Log.println(priority, TAG, message)
@@ -334,12 +345,84 @@ class BleConnectionManager(
                 }
                 .enqueue()
         }
+
+        // Queued after ANCS, so notifications work even if AMS fails
+        setupAms()
+    }
+
+    /**
+     * Subscribe to Apple Media Service: now-playing info and remote control for whatever
+     * app is playing on the iPhone. Optional — ANCS works without it.
+     */
+    private fun setupAms() {
+        val service = currentGatt?.getService(AmsConstants.AMS_SERVICE_UUID)
+        if (service == null) {
+            Log.i(TAG, "AMS not available — media controls disabled")
+            return
+        }
+
+        val remoteCommand = service.getCharacteristic(AmsConstants.REMOTE_COMMAND_UUID)
+        val entityUpdate = service.getCharacteristic(AmsConstants.ENTITY_UPDATE_UUID)
+        if (remoteCommand == null || entityUpdate == null) {
+            Log.w(TAG, "AMS service found but missing characteristics")
+            return
+        }
+        amsRemoteCommandChar = remoteCommand
+        amsEntityUpdateChar = entityUpdate
+        amsEntityAttributeChar = service.getCharacteristic(AmsConstants.ENTITY_ATTRIBUTE_UUID)
+
+        setNotificationCallback(remoteCommand).with { _, data ->
+            data.value?.let { bytes -> onAmsRemoteCommands?.invoke(bytes) }
+        }
+        setNotificationCallback(entityUpdate).with { _, data ->
+            data.value?.let { bytes -> onAmsEntityUpdate?.invoke(bytes) }
+        }
+
+        enableNotifications(remoteCommand)
+            .fail { _, status -> Log.w(TAG, "✗ Failed to enable AMS Remote Command: $status") }
+            .enqueue()
+        enableNotifications(entityUpdate)
+            .fail { _, status -> Log.w(TAG, "✗ Failed to enable AMS Entity Update: $status") }
+            .enqueue()
+
+        // Tell iOS which attributes to send us: one write per entity
+        writeCharacteristic(
+            entityUpdate,
+            byteArrayOf(
+                AmsConstants.ENTITY_PLAYER,
+                AmsConstants.PLAYER_ATTR_NAME,
+                AmsConstants.PLAYER_ATTR_PLAYBACK_INFO,
+                AmsConstants.PLAYER_ATTR_VOLUME
+            ),
+            BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
+        )
+            .fail { _, status -> Log.w(TAG, "✗ AMS player subscription failed: $status") }
+            .enqueue()
+        writeCharacteristic(
+            entityUpdate,
+            byteArrayOf(
+                AmsConstants.ENTITY_TRACK,
+                AmsConstants.TRACK_ATTR_ARTIST,
+                AmsConstants.TRACK_ATTR_TITLE,
+                AmsConstants.TRACK_ATTR_DURATION
+            ),
+            BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
+        )
+            .done {
+                Log.i(TAG, "✓ Subscribed to Apple Media Service")
+                onAmsReady?.invoke()
+            }
+            .fail { _, status -> Log.w(TAG, "✗ AMS track subscription failed: $status") }
+            .enqueue()
     }
 
     override fun onServicesInvalidated() {
         notificationSourceChar = null
         controlPointChar = null
         dataSourceChar = null
+        amsRemoteCommandChar = null
+        amsEntityUpdateChar = null
+        amsEntityAttributeChar = null
         currentGatt = null
         cancelBondTimeout()
         unregisterBondReceiver()
@@ -354,6 +437,41 @@ class BleConnectionManager(
         this.onDataSource = onDataSource
     }
 
+    fun setAmsCallbacks(
+        onReady: () -> Unit,
+        onRemoteCommands: (ByteArray) -> Unit,
+        onEntityUpdate: (ByteArray) -> Unit
+    ) {
+        onAmsReady = onReady
+        onAmsRemoteCommands = onRemoteCommands
+        onAmsEntityUpdate = onEntityUpdate
+    }
+
+    /** Send an AMS RemoteCommandID (play, pause, next track, volume up, ...). */
+    fun writeAmsRemoteCommand(commandId: Byte) {
+        val char = amsRemoteCommandChar ?: run {
+            Log.w(TAG, "AMS Remote Command not available")
+            return
+        }
+        writeCharacteristic(char, byteArrayOf(commandId), BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT)
+            .fail { _, status -> Log.w(TAG, "AMS command $commandId failed: $status") }
+            .enqueue()
+    }
+
+    /** Fetch the full value of a truncated AMS attribute: write which one, then read it. */
+    fun readAmsAttribute(entityId: Byte, attributeId: Byte, onValue: (String) -> Unit) {
+        val char = amsEntityAttributeChar ?: return
+        writeCharacteristic(
+            char, byteArrayOf(entityId, attributeId), BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
+        )
+            .fail { _, status -> Log.w(TAG, "AMS attribute select failed: $status") }
+            .enqueue()
+        readCharacteristic(char)
+            .with { _, data -> data.value?.let { onValue(String(it, Charsets.UTF_8)) } }
+            .fail { _, status -> Log.w(TAG, "AMS attribute read failed: $status") }
+            .enqueue()
+    }
+
     fun writeControlPoint(data: ByteArray) {
         val char = controlPointChar ?: run {
             Log.e(TAG, "Control Point characteristic not available")
@@ -364,21 +482,58 @@ class BleConnectionManager(
             .enqueue()
     }
 
-    fun connectToDevice(device: BluetoothDevice) {
-        _connectionState.value = ConnectionState.CONNECTING
-        Log.i(TAG, "Attempting connection to ${device.address}...")
-        connect(device)
-            .retry(2, 500)       // 2 retries with 500ms delay
-            .timeout(15000)      // 15s timeout — bonding can take time
-            .useAutoConnect(false)
-            .done {
-                Log.i(TAG, "Connected to ${device.address}")
+    /** Bumped on every new connection attempt, so failures of superseded attempts are ignored. */
+    private var connectGeneration = 0
+
+    /**
+     * Direct connection attempt: fast, but gives up if the iPhone isn't reachable right now.
+     * [onFailed] is called if this attempt fails (and wasn't superseded by a newer one).
+     */
+    fun connectToDevice(device: BluetoothDevice, onFailed: () -> Unit = {}) {
+        enqueueConnect(device, background = false, onFailed = onFailed)
+    }
+
+    /**
+     * Background connection for a bonded iPhone that is out of range. After one quick direct
+     * try, Nordic hands over to Android's autoConnect: a low-power wait with no timeout that
+     * connects as soon as the iPhone is back in range.
+     */
+    fun connectInBackground(device: BluetoothDevice, onFailed: () -> Unit = {}) {
+        enqueueConnect(device, background = true, onFailed = onFailed)
+    }
+
+    private fun enqueueConnect(device: BluetoothDevice, background: Boolean, onFailed: () -> Unit) {
+        // Run on the main thread so cancelQueue() and the new request stay in order.
+        mainHandler.post {
+            // A pending background attempt blocks Nordic's queue (it never times out),
+            // so drop it first — otherwise this request would never run.
+            cancelQueue()
+
+            val generation = ++connectGeneration
+            _connectionState.value = ConnectionState.CONNECTING
+            Log.i(TAG, "Attempting ${if (background) "background" else "direct"} connection to ${device.address}...")
+
+            val request = connect(device)
+            if (background) {
+                request.useAutoConnect(true)
+            } else {
+                request
+                    .retry(2, 500)       // 2 retries with 500ms delay
+                    .timeout(15000)      // 15s timeout — bonding can take time
+                    .useAutoConnect(false)
             }
-            .fail { _, status ->
-                Log.e(TAG, "Connection failed to ${device.address} with status: $status")
-                _connectionState.value = ConnectionState.DISCONNECTED
-            }
-            .enqueue()
+            request
+                .done {
+                    Log.i(TAG, "Connected to ${device.address}")
+                }
+                .fail { _, status ->
+                    if (generation != connectGeneration) return@fail
+                    Log.e(TAG, "Connection failed to ${device.address} with status: $status")
+                    _connectionState.value = ConnectionState.DISCONNECTED
+                    onFailed()
+                }
+                .enqueue()
+        }
     }
 
     /**
@@ -405,6 +560,10 @@ class BleConnectionManager(
 
     fun disconnectDevice() {
         _connectionState.value = ConnectionState.DISCONNECTING
-        disconnect().enqueue()
+        mainHandler.post {
+            // disconnect() alone can't stop a pending background attempt (it waits in the queue)
+            cancelQueue()
+            disconnect().enqueue()
+        }
     }
 }

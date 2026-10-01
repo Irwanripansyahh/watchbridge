@@ -9,6 +9,9 @@ lifecycle = "2.8.6"
 activityCompose = "1.9.2"
 coreKtx = "1.13.1"
 navigationCompose = "1.4.0"
+wearTiles = "1.4.1"
+protolayout = "1.2.1"
+concurrentFutures = "1.1.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -27,6 +30,12 @@ compose-foundation = { group = "androidx.compose.foundation", name = "foundation
 wear-compose-material = { group = "androidx.wear.compose", name = "compose-material", version.ref = "wearCompose" }
 wear-compose-foundation = { group = "androidx.wear.compose", name = "compose-foundation", version.ref = "wearCompose" }
 wear-compose-navigation = { group = "androidx.wear.compose", name = "compose-navigation", version.ref = "navigationCompose" }
+
+# Wear OS Tiles
+wear-tiles = { group = "androidx.wear.tiles", name = "tiles", version.ref = "wearTiles" }
+wear-protolayout = { group = "androidx.wear.protolayout", name = "protolayout", version.ref = "protolayout" }
+wear-protolayout-material = { group = "androidx.wear.protolayout", name = "protolayout-material", version.ref = "protolayout" }
+androidx-concurrent-futures = { group = "androidx.concurrent", name = "concurrent-futures", version.ref = "concurrentFutures" }
 
 # Nordic BLE
 nordic-ble-ktx = { group = "no.nordicsemi.android", name = "ble-ktx", version.ref = "nordicBle" }

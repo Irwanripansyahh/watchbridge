@@ -12,7 +12,7 @@ for %%F in ("%SCRIPT_DIR%watchbridge-*.apk") do (
 
 if not defined APK (
   echo Could not find watchbridge-*.apk next to this script.
-  echo Download the APK from https://github.com/rajtiwariee/watchbridge/releases/latest
+  echo Download the APK from https://github.com/Irwanripansyahh/watchbridge/releases/latest
   echo and place it in the same folder as install.bat.
   pause
   exit /b 1

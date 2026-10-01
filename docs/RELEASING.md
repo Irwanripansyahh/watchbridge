@@ -36,6 +36,16 @@ To copy the base64 to your clipboard on macOS:
 base64 -i watchbridge-release.keystore | pbcopy
 ```
 
+## One-time: releasing from a fork
+
+GitHub doesn't copy secrets to forks and keeps Actions off until you turn them on:
+
+1. Fork → **Actions** tab → **I understand my workflows, go ahead and enable them**.
+2. Create your own keystore and add the four secrets above to the fork.
+3. **Actions → Release → Run workflow** (branch `master`) to cut the first release without another push.
+
+Without the secrets the run stops at *Decode signing keystore* with a clear error, and no tag is created.
+
 ## Cutting a release
 
 Releases are **automatic on every push to `master`** that touches app code. No manual tagging needed:

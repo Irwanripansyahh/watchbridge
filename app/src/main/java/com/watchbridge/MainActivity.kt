@@ -21,6 +21,7 @@ import com.watchbridge.ble.ConnectionStateMachine
 import com.watchbridge.service.WatchBridgeService
 import com.watchbridge.settings.SettingsManager
 import com.watchbridge.ui.screens.HomeScreen
+import com.watchbridge.ui.screens.NowPlayingScreen
 import com.watchbridge.ui.screens.OnboardingScreen
 import com.watchbridge.ui.screens.PairingScreen
 import com.watchbridge.ui.screens.SettingsScreen
@@ -81,6 +82,15 @@ class MainActivity : ComponentActivity() {
                             onNavigateToSettings = {
                                 navController.navigate("settings")
                             },
+                            onNavigateToMedia = {
+                                navController.navigate("media")
+                            },
+                            onReconnect = {
+                                val sm = WatchBridgeService.stateMachine
+                                if (sm == null || !sm.autoConnectToBonded()) {
+                                    navController.navigate("pairing")
+                                }
+                            },
                             onDisconnect = {
                                 WatchBridgeService.stateMachine?.disconnect()
                             }
@@ -109,6 +119,9 @@ class MainActivity : ComponentActivity() {
                     composable("settings") {
                         val settings = WatchBridgeService.settingsManager ?: localSettings
                         SettingsScreen(settings = settings)
+                    }
+                    composable("media") {
+                        NowPlayingScreen(media = WatchBridgeService.mediaManager)
                     }
                 }
             }
@@ -151,8 +164,13 @@ class MainActivity : ComponentActivity() {
 
     private fun startBridgeService() {
         if (!WatchBridgeService.isRunning && localSettings.isOnboardingComplete) {
-            ensureServiceRunning()
-            WatchBridgeService.stateMachine?.autoConnectToBonded()
+            // The state machine doesn't exist until the service has started, so let the
+            // service connect to the bonded iPhone itself
+            Log.i(TAG, "Starting WatchBridgeService and connecting to bonded iPhone")
+            val intent = Intent(this, WatchBridgeService::class.java).apply {
+                action = WatchBridgeService.ACTION_CONNECT_BONDED
+            }
+            startForegroundService(intent)
         }
     }
 

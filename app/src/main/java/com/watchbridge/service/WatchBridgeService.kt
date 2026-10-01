@@ -12,17 +12,20 @@ import androidx.core.app.NotificationCompat
 import com.watchbridge.MainActivity
 import com.watchbridge.R
 import com.watchbridge.WatchBridgeApp
+import com.watchbridge.ams.AmsMediaManager
 import com.watchbridge.ancs.AncsSessionManager
 import com.watchbridge.ble.BleAdvertiser
 import com.watchbridge.ble.BleConnectionManager
 import com.watchbridge.ble.BondManager
 import com.watchbridge.ble.ConnectionStateMachine
 import com.watchbridge.notification.AncsNotificationPipeline
+import com.watchbridge.notification.AppIconResolver
 import com.watchbridge.notification.AppNameResolver
 import com.watchbridge.notification.CallNotificationHandler
 import com.watchbridge.notification.NotificationActionReceiver
 import com.watchbridge.notification.NotificationRenderer
 import com.watchbridge.settings.SettingsManager
+import com.watchbridge.tile.ConnectionTileService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -58,6 +61,8 @@ class WatchBridgeService : Service() {
             private set
         var settingsManager: SettingsManager? = null
             private set
+        var mediaManager: AmsMediaManager? = null
+            private set
         var isRunning: Boolean = false
             private set
     }
@@ -79,9 +84,10 @@ class WatchBridgeService : Service() {
         val sessMgr = AncsSessionManager()
         val sm = ConnectionStateMachine(connMgr, bondMgr)
 
-        val renderer = NotificationRenderer(this)
+        val renderer = NotificationRenderer(this, settings)
         val callHandler = CallNotificationHandler(this, renderer)
         val appNameResolver = AppNameResolver(this)
+        val appIconResolver = AppIconResolver(this)
         val pipe = AncsNotificationPipeline(
             context = this,
             connectionManager = connMgr,
@@ -89,7 +95,15 @@ class WatchBridgeService : Service() {
             renderer = renderer,
             callHandler = callHandler,
             appNameResolver = appNameResolver,
+            appIconResolver = appIconResolver,
             settings = settings
+        )
+
+        val media = AmsMediaManager(connMgr)
+        connMgr.setAmsCallbacks(
+            onReady = media::onSubscribed,
+            onRemoteCommands = media::onRemoteCommandsUpdate,
+            onEntityUpdate = media::onEntityUpdate
         )
 
         connMgr.setAncsCallbacks(
@@ -107,6 +121,7 @@ class WatchBridgeService : Service() {
         sm.onDisconnected = {
             pipe.onDisconnected()
             sessMgr.onDisconnected()
+            media.reset()
             updateNotification("Reconnecting...")
         }
         sm.onSessionReset = {
@@ -119,6 +134,7 @@ class WatchBridgeService : Service() {
         bondManager = bondMgr
         pipeline = pipe
         settingsManager = settings
+        mediaManager = media
         advertiser = adv
 
         bondMgr.register()
@@ -126,7 +142,7 @@ class WatchBridgeService : Service() {
         val receiver = NotificationActionReceiver()
         registerReceiver(
             receiver,
-            IntentFilter("com.watchbridge.ACTION_PERFORM"),
+            IntentFilter(NotificationActionReceiver.ACTION_PERFORM),
             RECEIVER_NOT_EXPORTED
         )
         actionReceiver = receiver
@@ -145,9 +161,11 @@ class WatchBridgeService : Service() {
                     ConnectionStateMachine.State.DISCONNECTED -> "Disconnected"
                     ConnectionStateMachine.State.WAITING_TO_RECONNECT -> "Waiting to reconnect..."
                     ConnectionStateMachine.State.RECONNECTING -> "Reconnecting..."
-                    ConnectionStateMachine.State.FAILED -> "Connection failed"
+                    ConnectionStateMachine.State.WAITING_FOR_PHONE -> "Waiting for iPhone (out of range)"
+                    ConnectionStateMachine.State.FAILED -> "Not paired"
                 }
                 updateNotification(statusText)
+                ConnectionTileService.requestUpdate(this@WatchBridgeService)
 
                 when (state) {
                     ConnectionStateMachine.State.READY ->
@@ -212,8 +230,10 @@ class WatchBridgeService : Service() {
         bondManager = null
         pipeline = null
         settingsManager = null
+        mediaManager = null
         advertiser = null
         isRunning = false
+        ConnectionTileService.requestUpdate(this)
 
         super.onDestroy()
     }

@@ -4,6 +4,7 @@ import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import com.watchbridge.notification.NotificationChannels
+import com.watchbridge.settings.SettingsManager
 
 class WatchBridgeApp : Application() {
 
@@ -14,7 +15,7 @@ class WatchBridgeApp : Application() {
     override fun onCreate() {
         super.onCreate()
         createServiceChannel()
-        NotificationChannels.createAll(this)
+        NotificationChannels.createAll(this, vibrate = SettingsManager(this).isVibrationEnabled)
     }
 
     private fun createServiceChannel() {

@@ -75,6 +75,12 @@ dependencies {
     implementation(libs.wear.compose.foundation)
     implementation(libs.wear.compose.navigation)
 
+    // Wear OS Tiles
+    implementation(libs.wear.tiles)
+    implementation(libs.wear.protolayout)
+    implementation(libs.wear.protolayout.material)
+    implementation(libs.androidx.concurrent.futures)
+
     // Nordic BLE
     implementation(libs.nordic.ble.ktx)
     implementation(libs.nordic.ble.common)

@@ -11,6 +11,11 @@ import com.watchbridge.ancs.AncsConstants
  *
  * All bridged channels use IMPORTANCE_HIGH so notifications pop up as heads-up
  * on the watch face instead of silently going to the shade.
+ *
+ * A channel's vibration can't be changed after it's created, so the "Vibration" setting
+ * switches between two families of channels: the normal ones and "_quiet" twins without
+ * vibration. Only the active family exists at a time. Call channels always vibrate,
+ * since a watch has no ringer.
  */
 object NotificationChannels {
 
@@ -28,6 +33,8 @@ object NotificationChannels {
     const val CHANNEL_OTHER = "ancs_other_v3"
     const val CHANNEL_ACTIVE_CALL = "ancs_active_call_v3"
 
+    private const val QUIET_SUFFIX = "_quiet"
+
     // Old channel IDs to clean up (v1 and v2)
     private val OLD_CHANNEL_IDS = listOf(
         "ancs_incoming_call", "ancs_missed_call", "ancs_voicemail",
@@ -42,136 +49,60 @@ object NotificationChannels {
 
     private val VIBRATION_PATTERN = longArrayOf(0, 200, 100, 200)
 
-    fun createAll(context: Context) {
+    private class ChannelSpec(val id: String, val name: String, val description: String)
+
+    private val CALL_CHANNELS = listOf(
+        ChannelSpec(CHANNEL_INCOMING_CALL, "Incoming Calls", "iPhone incoming call alerts"),
+        ChannelSpec(CHANNEL_ACTIVE_CALL, "Active Calls", "Active call controls")
+    )
+
+    /** Channels that follow the "Vibration" setting. */
+    private val ALERT_CHANNELS = listOf(
+        ChannelSpec(CHANNEL_MISSED_CALL, "Missed Calls", "iPhone missed call alerts"),
+        ChannelSpec(CHANNEL_VOICEMAIL, "Voicemail", "iPhone voicemail notifications"),
+        ChannelSpec(CHANNEL_SOCIAL, "Social", "Messages, social media notifications"),
+        ChannelSpec(CHANNEL_SCHEDULE, "Schedule", "Calendar and reminder notifications"),
+        ChannelSpec(CHANNEL_EMAIL, "Email", "Email notifications"),
+        ChannelSpec(CHANNEL_NEWS, "News", "News notifications"),
+        ChannelSpec(CHANNEL_HEALTH, "Health & Fitness", "Health and fitness notifications"),
+        ChannelSpec(CHANNEL_BUSINESS, "Business & Finance", "Business and finance notifications"),
+        ChannelSpec(CHANNEL_LOCATION, "Location", "Location-based notifications"),
+        ChannelSpec(CHANNEL_ENTERTAINMENT, "Entertainment", "Entertainment notifications"),
+        ChannelSpec(CHANNEL_OTHER, "Other", "Other iPhone notifications")
+    )
+
+    fun createAll(context: Context, vibrate: Boolean) {
         val nm = context.getSystemService(NotificationManager::class.java)
 
         // Delete old channels so new settings take effect
         OLD_CHANNEL_IDS.forEach { nm.deleteNotificationChannel(it) }
 
-        val channels = listOf(
-            NotificationChannel(
-                CHANNEL_INCOMING_CALL, "Incoming Calls",
-                NotificationManager.IMPORTANCE_HIGH
-            ).apply {
-                description = "iPhone incoming call alerts"
-                enableVibration(true)
-                vibrationPattern = VIBRATION_PATTERN
-            },
+        // Only keep the active family, so system settings don't list every category twice
+        ALERT_CHANNELS.forEach { nm.deleteNotificationChannel(alertChannelId(it.id, !vibrate)) }
 
-            NotificationChannel(
-                CHANNEL_MISSED_CALL, "Missed Calls",
-                NotificationManager.IMPORTANCE_HIGH
-            ).apply {
-                description = "iPhone missed call alerts"
-                enableVibration(true)
-                vibrationPattern = VIBRATION_PATTERN
-            },
-
-            NotificationChannel(
-                CHANNEL_VOICEMAIL, "Voicemail",
-                NotificationManager.IMPORTANCE_HIGH
-            ).apply {
-                description = "iPhone voicemail notifications"
-                enableVibration(true)
-                vibrationPattern = VIBRATION_PATTERN
-            },
-
-            NotificationChannel(
-                CHANNEL_SOCIAL, "Social",
-                NotificationManager.IMPORTANCE_HIGH
-            ).apply {
-                description = "Messages, social media notifications"
-                enableVibration(true)
-                vibrationPattern = VIBRATION_PATTERN
-            },
-
-            NotificationChannel(
-                CHANNEL_SCHEDULE, "Schedule",
-                NotificationManager.IMPORTANCE_HIGH
-            ).apply {
-                description = "Calendar and reminder notifications"
-                enableVibration(true)
-                vibrationPattern = VIBRATION_PATTERN
-            },
-
-            NotificationChannel(
-                CHANNEL_EMAIL, "Email",
-                NotificationManager.IMPORTANCE_HIGH
-            ).apply {
-                description = "Email notifications"
-                enableVibration(true)
-                vibrationPattern = VIBRATION_PATTERN
-            },
-
-            NotificationChannel(
-                CHANNEL_NEWS, "News",
-                NotificationManager.IMPORTANCE_HIGH
-            ).apply {
-                description = "News notifications"
-                enableVibration(true)
-                vibrationPattern = VIBRATION_PATTERN
-            },
-
-            NotificationChannel(
-                CHANNEL_HEALTH, "Health & Fitness",
-                NotificationManager.IMPORTANCE_HIGH
-            ).apply {
-                description = "Health and fitness notifications"
-                enableVibration(true)
-                vibrationPattern = VIBRATION_PATTERN
-            },
-
-            NotificationChannel(
-                CHANNEL_BUSINESS, "Business & Finance",
-                NotificationManager.IMPORTANCE_HIGH
-            ).apply {
-                description = "Business and finance notifications"
-                enableVibration(true)
-                vibrationPattern = VIBRATION_PATTERN
-            },
-
-            NotificationChannel(
-                CHANNEL_LOCATION, "Location",
-                NotificationManager.IMPORTANCE_HIGH
-            ).apply {
-                description = "Location-based notifications"
-                enableVibration(true)
-                vibrationPattern = VIBRATION_PATTERN
-            },
-
-            NotificationChannel(
-                CHANNEL_ENTERTAINMENT, "Entertainment",
-                NotificationManager.IMPORTANCE_HIGH
-            ).apply {
-                description = "Entertainment notifications"
-                enableVibration(true)
-                vibrationPattern = VIBRATION_PATTERN
-            },
-
-            NotificationChannel(
-                CHANNEL_OTHER, "Other",
-                NotificationManager.IMPORTANCE_HIGH
-            ).apply {
-                description = "Other iPhone notifications"
-                enableVibration(true)
-                vibrationPattern = VIBRATION_PATTERN
-            },
-
-            NotificationChannel(
-                CHANNEL_ACTIVE_CALL, "Active Calls",
-                NotificationManager.IMPORTANCE_HIGH
-            ).apply {
-                description = "Active call controls"
-                enableVibration(true)
-                vibrationPattern = VIBRATION_PATTERN
-            }
-        )
+        val channels = CALL_CHANNELS.map { buildChannel(it.id, it, vibrate = true) } +
+            ALERT_CHANNELS.map { buildChannel(alertChannelId(it.id, vibrate), it, vibrate) }
 
         nm.createNotificationChannels(channels)
     }
 
-    fun channelForCategory(categoryId: Byte): String = when (categoryId) {
+    private fun buildChannel(id: String, spec: ChannelSpec, vibrate: Boolean) =
+        NotificationChannel(id, spec.name, NotificationManager.IMPORTANCE_HIGH).apply {
+            description = spec.description
+            enableVibration(vibrate)
+            vibrationPattern = if (vibrate) VIBRATION_PATTERN else null
+        }
+
+    private fun alertChannelId(baseId: String, vibrate: Boolean): String =
+        if (vibrate) baseId else baseId + QUIET_SUFFIX
+
+    fun channelForCategory(categoryId: Byte, vibrate: Boolean): String = when (categoryId) {
         AncsConstants.CATEGORY_INCOMING_CALL -> CHANNEL_INCOMING_CALL
+        AncsConstants.CATEGORY_ACTIVE_CALL -> CHANNEL_ACTIVE_CALL
+        else -> alertChannelId(alertBaseChannel(categoryId), vibrate)
+    }
+
+    private fun alertBaseChannel(categoryId: Byte): String = when (categoryId) {
         AncsConstants.CATEGORY_MISSED_CALL -> CHANNEL_MISSED_CALL
         AncsConstants.CATEGORY_VOICEMAIL -> CHANNEL_VOICEMAIL
         AncsConstants.CATEGORY_SOCIAL -> CHANNEL_SOCIAL
@@ -182,7 +113,6 @@ object NotificationChannels {
         AncsConstants.CATEGORY_BUSINESS_AND_FINANCE -> CHANNEL_BUSINESS
         AncsConstants.CATEGORY_LOCATION -> CHANNEL_LOCATION
         AncsConstants.CATEGORY_ENTERTAINMENT -> CHANNEL_ENTERTAINMENT
-        AncsConstants.CATEGORY_ACTIVE_CALL -> CHANNEL_ACTIVE_CALL
         else -> CHANNEL_OTHER
     }
 }
