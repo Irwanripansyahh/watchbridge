@@ -131,15 +131,18 @@ private fun PlayerControls(state: AmsMediaManager.MediaState, media: AmsMediaMan
             .fillMaxSize()
             .padding(horizontal = 22.dp, vertical = 20.dp)
     ) {
+        // Before a track is loaded the player's name is all there is: show it as the title
+        if (state.title.isNotEmpty()) {
+            Text(
+                text = state.playerName,
+                style = MaterialTheme.typography.caption2,
+                color = MaterialTheme.colors.primary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
         Text(
-            text = state.playerName,
-            style = MaterialTheme.typography.caption2,
-            color = MaterialTheme.colors.primary,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
-        Text(
-            text = state.title.ifEmpty { "Unknown title" },
+            text = state.title.ifEmpty { state.playerName },
             style = MaterialTheme.typography.body1,
             color = MaterialTheme.colors.onSurface,
             textAlign = TextAlign.Center,

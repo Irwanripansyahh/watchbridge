@@ -182,10 +182,15 @@ class WatchBridgeService : Service() {
             }
         }
 
-        // Refresh the media tile when what it shows changes (not on every position/volume tick)
+        // Refresh the media tile when what it shows changes (not on every position tick)
         serviceScope.launch {
             media.state
-                .map { listOf(it.available, it.playerName, it.title, it.artist, it.isPlaying, it.supportedCommands) }
+                .map {
+                    listOf(
+                        it.available, it.playerName, it.title, it.artist, it.isPlaying,
+                        it.supportedCommands, it.volume?.let { volume -> (volume * 100).toInt() }
+                    )
+                }
                 .distinctUntilChanged()
                 .collect { MediaTileService.requestUpdate(this@WatchBridgeService) }
         }

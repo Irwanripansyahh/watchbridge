@@ -24,9 +24,11 @@ import com.watchbridge.ams.AmsConstants
 import com.watchbridge.ams.AmsMediaManager
 import com.watchbridge.service.WatchBridgeService
 import com.watchbridge.ui.MediaActivity
+import kotlin.math.roundToInt
 
 /**
- * Tile with the iPhone's now playing track and previous / play-pause / next buttons.
+ * Tile with the iPhone's now playing track, previous / play-pause / next buttons and
+ * volume down / up (the bezel only works in the full player; tiles only take taps).
  *
  * Tapping a button reloads the tile with that button's id, which is when the command is
  * sent to the iPhone (tiles can't run code on click otherwise).
@@ -34,16 +36,27 @@ import com.watchbridge.ui.MediaActivity
 class MediaTileService : TileService() {
 
     companion object {
-        private const val RESOURCES_VERSION = "1"
+        // Bump when the images change, so the system fetches them again
+        private const val RESOURCES_VERSION = "2"
 
         private const val ID_PREVIOUS = "previous"
         private const val ID_PLAY_PAUSE = "play_pause"
         private const val ID_NEXT = "next"
+        private const val ID_VOLUME_DOWN = "volume_down"
+        private const val ID_VOLUME_UP = "volume_up"
 
         private const val ICON_PLAY = "play"
         private const val ICON_PAUSE = "pause"
         private const val ICON_PREVIOUS = "previous"
         private const val ICON_NEXT = "next"
+        private const val ICON_VOLUME_DOWN = "volume_down"
+        private const val ICON_VOLUME_UP = "volume_up"
+
+        /** iOS changes the volume in 16 steps. */
+        private const val VOLUME_STEP = 1f / 16
+
+        /** Below this screen height the artist line is left out to make room for volume. */
+        private const val MIN_HEIGHT_FOR_ARTIST_DP = 200
 
         private const val COLOR_PRIMARY = 0xFF4FC3F7.toInt()
         private const val COLOR_TEXT = 0xFFFFFFFF.toInt()
@@ -70,6 +83,14 @@ class MediaTileService : TileService() {
                 // Show the new state right away; iOS confirms it a moment later
                 state = state.copy(isPlaying = !state.isPlaying)
             }
+            ID_VOLUME_DOWN -> {
+                media?.volumeDown()
+                state = state.copy(volume = state.volume?.let { (it - VOLUME_STEP).coerceAtLeast(0f) })
+            }
+            ID_VOLUME_UP -> {
+                media?.volumeUp()
+                state = state.copy(volume = state.volume?.let { (it + VOLUME_STEP).coerceAtMost(1f) })
+            }
         }
 
         val deviceParameters = requestParams.deviceConfiguration
@@ -79,13 +100,18 @@ class MediaTileService : TileService() {
             .setResponsiveContentInsetEnabled(true)
             .setPrimaryLabelTextContent(
                 text(
-                    state.playerName.ifEmpty { "Music Control" },
+                    // Without a track the player's name moves down into the title
+                    if (state.title.isNotEmpty()) state.playerName else "Music Control",
                     Typography.TYPOGRAPHY_CAPTION1,
                     COLOR_PRIMARY
                 )
             )
             .setContent(
-                if (state.hasPlayer) playerContent(state, openApp) else emptyContent(state, openApp)
+                if (state.hasPlayer) {
+                    playerContent(state, openApp, showArtist = deviceParameters.screenHeightDp >= MIN_HEIGHT_FOR_ARTIST_DP)
+                } else {
+                    emptyContent(state, openApp)
+                }
             )
             .build()
 
@@ -106,12 +132,15 @@ class MediaTileService : TileService() {
                 .addIdToImageMapping(ICON_PAUSE, image(R.drawable.ic_pause))
                 .addIdToImageMapping(ICON_PREVIOUS, image(R.drawable.ic_skip_previous))
                 .addIdToImageMapping(ICON_NEXT, image(R.drawable.ic_skip_next))
+                .addIdToImageMapping(ICON_VOLUME_DOWN, image(R.drawable.ic_volume_down))
+                .addIdToImageMapping(ICON_VOLUME_UP, image(R.drawable.ic_volume_up))
                 .build()
         )
 
     private fun playerContent(
         state: AmsMediaManager.MediaState,
-        openApp: ModifiersBuilders.Clickable
+        openApp: ModifiersBuilders.Clickable,
+        showArtist: Boolean
     ): LayoutElementBuilders.LayoutElement {
         // Until iOS says which commands the player supports, offer them all
         fun supported(command: Byte) = state.supportedCommands.isEmpty() || state.supports(command)
@@ -137,17 +166,44 @@ class MediaTileService : TileService() {
                 // Tapping the track opens the full player (volume, progress)
                 LayoutElementBuilders.Column.Builder()
                     .setModifiers(ModifiersBuilders.Modifiers.Builder().setClickable(openApp).build())
-                    .addContent(text(state.title.ifEmpty { "Unknown title" }, Typography.TYPOGRAPHY_TITLE3, COLOR_TEXT))
+                    .addContent(text(state.title.ifEmpty { state.playerName }, Typography.TYPOGRAPHY_TITLE3, COLOR_TEXT))
                     .apply {
-                        if (state.artist.isNotEmpty()) {
+                        if (showArtist && state.artist.isNotEmpty()) {
                             addContent(text(state.artist, Typography.TYPOGRAPHY_CAPTION2, COLOR_DETAIL))
                         }
                     }
                     .build()
             )
-            .addContent(LayoutElementBuilders.Spacer.Builder().setHeight(dp(6f)).build())
+            .addContent(LayoutElementBuilders.Spacer.Builder().setHeight(dp(4f)).build())
             .addContent(buttons.build())
+            .addContent(LayoutElementBuilders.Spacer.Builder().setHeight(dp(4f)).build())
+            .addContent(volumeRow(state, ::supported))
             .build()
+    }
+
+    /** Small volume down / up buttons with the current level between them. */
+    private fun volumeRow(
+        state: AmsMediaManager.MediaState,
+        supported: (Byte) -> Boolean
+    ): LayoutElementBuilders.LayoutElement {
+        val row = LayoutElementBuilders.Row.Builder()
+            .setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_CENTER)
+        if (supported(AmsConstants.COMMAND_VOLUME_DOWN)) {
+            row.addContent(smallButton(ID_VOLUME_DOWN, ICON_VOLUME_DOWN, "Volume down"))
+        }
+        row.addContent(LayoutElementBuilders.Spacer.Builder().setWidth(dp(8f)).build())
+        row.addContent(
+            text(
+                state.volume?.let { "${(it * 100).roundToInt()}%" } ?: "Vol",
+                Typography.TYPOGRAPHY_CAPTION2,
+                COLOR_DETAIL
+            )
+        )
+        row.addContent(LayoutElementBuilders.Spacer.Builder().setWidth(dp(8f)).build())
+        if (supported(AmsConstants.COMMAND_VOLUME_UP)) {
+            row.addContent(smallButton(ID_VOLUME_UP, ICON_VOLUME_UP, "Volume up"))
+        }
+        return row.build()
     }
 
     private fun emptyContent(
@@ -180,16 +236,25 @@ class MediaTileService : TileService() {
             .build()
 
     private fun button(id: String, icon: String, description: String, primary: Boolean): Button =
-        Button.Builder(
-            this,
-            ModifiersBuilders.Clickable.Builder()
-                .setId(id)
-                .setOnClick(ActionBuilders.LoadAction.Builder().build())
-                .build()
-        )
+        Button.Builder(this, loadClickable(id))
             .setIconContent(icon)
             .setContentDescription(description)
             .setButtonColors(if (primary) ButtonDefaults.PRIMARY_COLORS else ButtonDefaults.SECONDARY_COLORS)
+            .build()
+
+    private fun smallButton(id: String, icon: String, description: String): Button =
+        Button.Builder(this, loadClickable(id))
+            .setIconContent(icon, dp(16f))
+            .setSize(dp(32f))
+            .setContentDescription(description)
+            .setButtonColors(ButtonDefaults.SECONDARY_COLORS)
+            .build()
+
+    /** Tapping reloads the tile with [id] as the last clicked id; see [onTileRequest]. */
+    private fun loadClickable(id: String): ModifiersBuilders.Clickable =
+        ModifiersBuilders.Clickable.Builder()
+            .setId(id)
+            .setOnClick(ActionBuilders.LoadAction.Builder().build())
             .build()
 
     private fun launchMediaApp(): ModifiersBuilders.Clickable =
