@@ -12,15 +12,31 @@ import java.util.Locale
  * Data Source responses can span multiple BLE packets. This parser accumulates
  * fragments and emits a complete result when all requested attributes are received.
  *
+ * A packet can end exactly between two attributes, so "the buffer parses cleanly" doesn't
+ * mean the response is done: completion is decided by the set of attributes that were
+ * requested ([expectedNotificationAttributes]).
+ *
  * Response format:
  *   Byte 0: CommandID (0 = GetNotificationAttributes response)
  *   Bytes 1-4: NotificationUID (uint32 LE)
  *   Then repeating: [AttributeID (1 byte)] [Length (2 bytes LE)] [Value (Length bytes)]
  */
-class AncsAttributeParser {
+class AncsAttributeParser(
+    private val expectedNotificationAttributes: Set<Byte> =
+        AncsActionHandler.DEFAULT_NOTIFICATION_ATTRIBUTES
+) {
+
+    companion object {
+        /** Fragments of one response arrive back to back; a gap this long means the rest was lost. */
+        private const val STALE_RESPONSE_NANOS = 1_000_000_000L
+
+        /** Far above any real response (a few attributes of at most 256 bytes each). */
+        private const val MAX_RESPONSE_BYTES = 8 * 1024
+    }
 
     private var buffer = ByteArray(0)
     private var expectedCommandId: Byte? = null
+    private var lastFragmentNanos = 0L
 
     data class NotificationAttributes(
         val notificationUid: UInt,
@@ -56,8 +72,18 @@ class AncsAttributeParser {
      * Feed a Data Source fragment into the parser.
      * Returns parsed attributes if the response is complete, null if more fragments needed.
      */
-    fun feedFragment(data: ByteArray): Any? {
+    fun feedFragment(data: ByteArray, nowNanos: Long = System.nanoTime()): Any? {
+        // A half-received response would otherwise swallow the next response into it
+        if (buffer.isNotEmpty() && nowNanos - lastFragmentNanos > STALE_RESPONSE_NANOS) {
+            reset()
+        }
+        lastFragmentNanos = nowNanos
+
         buffer += data
+        if (buffer.size > MAX_RESPONSE_BYTES) {
+            reset()
+            return null
+        }
 
         if (buffer.isEmpty()) return null
 
@@ -107,6 +133,9 @@ class AncsAttributeParser {
             offset += attrLen
         }
 
+        // The packet ended between two attributes, but more are still to come
+        if (!attrs.keys.containsAll(expectedNotificationAttributes)) return null
+
         // All attributes parsed successfully
         val result = NotificationAttributes(
             notificationUid = uid,
@@ -135,6 +164,7 @@ class AncsAttributeParser {
         var offset = nullIndex + 1
 
         var displayName: String? = null
+        var hasDisplayName = false
 
         while (offset < buffer.size) {
             if (offset + 3 > buffer.size) return null
@@ -151,10 +181,14 @@ class AncsAttributeParser {
 
             val value = String(buffer, offset, attrLen, Charsets.UTF_8)
             if (attrId == AncsConstants.APP_ATTR_DISPLAY_NAME) {
-                displayName = value
+                displayName = value.ifEmpty { null }
+                hasDisplayName = true
             }
             offset += attrLen
         }
+
+        // The packet ended right after the app identifier; the name is still to come
+        if (!hasDisplayName) return null
 
         val result = AppAttributes(appIdentifier = appId, displayName = displayName)
         reset()

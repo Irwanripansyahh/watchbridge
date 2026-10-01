@@ -86,28 +86,38 @@ class NotificationRenderer(
      * Used as a placeholder until full attributes arrive.
      */
     fun showBasicNotification(event: AncsNotificationEvent) {
+        // Silent: the watch should only buzz and peek once, when the real content arrives
+        postPlaceholder(event, text = "Loading...", silent = true)
+    }
+
+    /**
+     * The iPhone never sent this notification's content (even after retries). Still let the
+     * user know something arrived, instead of leaving "Loading..." forever.
+     */
+    fun showUnavailableNotification(event: AncsNotificationEvent) {
+        postPlaceholder(event, text = "Open your iPhone to read it", silent = false)
+    }
+
+    private fun postPlaceholder(event: AncsNotificationEvent, text: String, silent: Boolean) {
         if (event.isSilent) return
 
+        // Under the lock, so it can't land on top of the real content rendered meanwhile
         synchronized(lock) {
             // Already showing real content (ANCS "modified" event): keep it until the update arrives
             val uid = event.notificationUid
             if (uid in uidToConversation || uid in uidToGroup) return
+
+            val builder = NotificationCompat.Builder(context, channelFor(event.categoryId))
+                .setSmallIcon(NotificationIcons.iconForCategory(event.categoryId))
+                .setContentTitle(event.categoryName)
+                .setContentText(text)
+                .setAutoCancel(true)
+                .setSilent(silent)
+
+            builder.priority = NotificationCompat.PRIORITY_HIGH
+
+            notificationManager.notify(uidToNotifId(uid), builder.build())
         }
-
-        val channelId = channelFor(event.categoryId)
-        val notifId = uidToNotifId(event.notificationUid)
-
-        val builder = NotificationCompat.Builder(context, channelId)
-            .setSmallIcon(NotificationIcons.iconForCategory(event.categoryId))
-            .setContentTitle(event.categoryName)
-            .setContentText("Loading...")
-            .setAutoCancel(true)
-            // Silent: the watch should only buzz and peek once, when the real content arrives
-            .setSilent(true)
-
-        builder.priority = NotificationCompat.PRIORITY_HIGH
-
-        notificationManager.notify(notifId, builder.build())
     }
 
     /**

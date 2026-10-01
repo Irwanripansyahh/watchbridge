@@ -41,11 +41,18 @@ class AncsNotificationPipeline(
 
         /** How long a first-time app's notification waits for its icon to download. */
         private const val ICON_WAIT_MS = 3000L
+
+        /** Ask again if iOS hasn't answered an attribute request by then. */
+        private const val ATTRIBUTE_TIMEOUT_MS = 4000L
+        private const val MAX_ATTRIBUTE_RETRIES = 2
     }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val attributeRequestQueue = Channel<AncsNotificationEvent>(Channel.BUFFERED)
     private val pendingEvents = ConcurrentHashMap<UInt, AncsNotificationEvent>()
+
+    /** UIDs whose attributes haven't arrived yet → retries used so far. */
+    private val awaitingAttributes = ConcurrentHashMap<UInt, Int>()
 
     private val notificationManager =
         context.getSystemService(NotificationManager::class.java)
@@ -96,10 +103,12 @@ class AncsNotificationPipeline(
                     renderer.showBasicNotification(event)
                 }
                 pendingEvents[event.notificationUid] = event
+                awaitingAttributes[event.notificationUid] = 0
                 attributeRequestQueue.trySend(event)
             }
             event.isRemoved -> {
                 pendingEvents.remove(event.notificationUid)
+                awaitingAttributes.remove(event.notificationUid)
                 renderer.cancelNotification(event.notificationUid)
 
                 when (event.categoryId) {
@@ -152,9 +161,34 @@ class AncsNotificationPipeline(
         )
         connectionManager.writeControlPoint(command)
         Log.d(TAG, "Requested attributes for uid=${event.notificationUid}")
+
+        // A lost or garbled response would leave the notification stuck on "Loading...": ask again
+        scope.launch {
+            delay(ATTRIBUTE_TIMEOUT_MS)
+            val uid = event.notificationUid
+            // Removed, superseded by a newer event, or already rendered
+            if (pendingEvents[uid] !== event) return@launch
+            val retries = awaitingAttributes[uid] ?: return@launch
+
+            if (retries < MAX_ATTRIBUTE_RETRIES) {
+                Log.w(TAG, "No attributes for uid=$uid after ${ATTRIBUTE_TIMEOUT_MS}ms, retrying")
+                awaitingAttributes[uid] = retries + 1
+                attributeRequestQueue.trySend(event)
+            } else {
+                Log.e(TAG, "Giving up on attributes for uid=$uid")
+                awaitingAttributes.remove(uid)
+                if (!pendingEvents.remove(uid, event)) return@launch
+                when (event.categoryId) {
+                    AncsConstants.CATEGORY_INCOMING_CALL -> callHandler.showIncomingCall(event, null)
+                    AncsConstants.CATEGORY_ACTIVE_CALL -> callHandler.showActiveCall(event, null)
+                    else -> renderer.showUnavailableNotification(event)
+                }
+            }
+        }
     }
 
     private fun onNotificationAttributesReceived(attrs: AncsAttributeParser.NotificationAttributes) {
+        awaitingAttributes.remove(attrs.notificationUid)
         val event = pendingEvents[attrs.notificationUid]
         if (event == null) {
             Log.w(TAG, "Received attributes for unknown uid=${attrs.notificationUid}")
@@ -218,6 +252,7 @@ class AncsNotificationPipeline(
 
     fun onDisconnected() {
         pendingEvents.clear()
+        awaitingAttributes.clear()
         renderer.cancelAll()
         callHandler.cancelIncomingCall()
         callHandler.cancelActiveCall()

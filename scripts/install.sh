@@ -44,6 +44,8 @@ adb connect "$CONN_ADDR"
 echo
 echo "Installing..."
 adb -s "$CONN_ADDR" install -r "$APK"
+# Lets WatchBridge install its own updates (Settings → Updates); Wear OS has no screen for this
+adb -s "$CONN_ADDR" shell appops set com.watchbridge REQUEST_INSTALL_PACKAGES allow || true
 
 echo
 echo "Done!"

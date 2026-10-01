@@ -9,6 +9,21 @@ import java.nio.ByteOrder
 object AncsActionHandler {
 
     /**
+     * Attributes requested by [buildGetNotificationAttributes] with its default arguments.
+     * iOS answers with every requested attribute (missing ones with length 0), so this is
+     * how the parser knows a fragmented response is complete.
+     */
+    val DEFAULT_NOTIFICATION_ATTRIBUTES: Set<Byte> = setOf(
+        AncsConstants.ATTR_APP_IDENTIFIER,
+        AncsConstants.ATTR_TITLE,
+        AncsConstants.ATTR_SUBTITLE,
+        AncsConstants.ATTR_MESSAGE,
+        AncsConstants.ATTR_DATE,
+        AncsConstants.ATTR_POSITIVE_ACTION_LABEL,
+        AncsConstants.ATTR_NEGATIVE_ACTION_LABEL
+    )
+
+    /**
      * Build a GetNotificationAttributes command.
      *
      * Format:
