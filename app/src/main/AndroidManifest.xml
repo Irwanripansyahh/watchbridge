@@ -55,6 +55,19 @@
             </intent-filter>
         </activity>
 
+        <!-- Second launcher icon, "Music Control": opens straight into the media controls -->
+        <activity
+            android:name=".ui.MediaActivity"
+            android:exported="true"
+            android:icon="@drawable/ic_launcher_media"
+            android:label="@string/media_app_name"
+            android:taskAffinity="com.watchbridge.media">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
         <activity
             android:name=".ui.IncomingCallActivity"
             android:exported="false"
@@ -105,6 +118,21 @@
             <meta-data
                 android:name="androidx.wear.tiles.PREVIEW"
                 android:resource="@drawable/ic_launcher" />
+        </service>
+
+        <!-- Now playing tile with previous / play-pause / next -->
+        <service
+            android:name=".tile.MediaTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_music_note"
+            android:label="@string/media_tile_label"
+            android:permission="com.google.android.wearable.permission.BIND_TILE_PROVIDER">
+            <intent-filter>
+                <action android:name="androidx.wear.tiles.action.BIND_TILE_PROVIDER" />
+            </intent-filter>
+            <meta-data
+                android:name="androidx.wear.tiles.PREVIEW"
+                android:resource="@drawable/ic_launcher_media" />
         </service>
 
         <!-- Launched by the tile's Reconnect chip; tiles can only start activities -->

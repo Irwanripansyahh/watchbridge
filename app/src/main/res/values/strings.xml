@@ -15,4 +15,6 @@
     <string name="service_notification_title">WatchBridge Active</string>
     <string name="service_notification_text">Listening for iPhone notifications</string>
     <string name="tile_label">iPhone connection</string>
+    <string name="media_app_name">Music Control</string>
+    <string name="media_tile_label">Music Control</string>
 </resources>

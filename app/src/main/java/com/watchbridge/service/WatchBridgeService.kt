@@ -26,10 +26,13 @@ import com.watchbridge.notification.NotificationActionReceiver
 import com.watchbridge.notification.NotificationRenderer
 import com.watchbridge.settings.SettingsManager
 import com.watchbridge.tile.ConnectionTileService
+import com.watchbridge.tile.MediaTileService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
 /**
@@ -179,6 +182,14 @@ class WatchBridgeService : Service() {
             }
         }
 
+        // Refresh the media tile when what it shows changes (not on every position/volume tick)
+        serviceScope.launch {
+            media.state
+                .map { listOf(it.available, it.playerName, it.title, it.artist, it.isPlaying, it.supportedCommands) }
+                .distinctUntilChanged()
+                .collect { MediaTileService.requestUpdate(this@WatchBridgeService) }
+        }
+
         isRunning = true
     }
 
@@ -234,6 +245,7 @@ class WatchBridgeService : Service() {
         advertiser = null
         isRunning = false
         ConnectionTileService.requestUpdate(this)
+        MediaTileService.requestUpdate(this)
 
         super.onDestroy()
     }

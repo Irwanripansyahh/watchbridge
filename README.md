@@ -49,8 +49,8 @@ This works because notifications (ANCS) and media controls (AMS) are services **
 | **Chat conversations** | Messages from the same chat are shown together in the native Wear OS chat layout |
 | **Two-way dismissal** | Dismissing on the watch clears it on the iPhone, and vice versa |
 | **Calls** | Full-screen incoming call with Accept / Decline; ongoing call screen with timer and hang-up |
-| **iPhone media controls** | Play/pause, next/previous and volume for Spotify, Apple Music, YouTube Music, podcasts... Turn the bezel/crown for volume |
-| **Connection tile** | iPhone connection status on your tiles, with one-tap reconnect |
+| **iPhone media controls** | Play/pause, next/previous and volume for Spotify, Apple Music, YouTube Music, podcasts... Turn the bezel/crown for volume. Has its own **Music Control** app icon and tile |
+| **Tiles** | *iPhone connection* (status + one-tap reconnect) and *Music Control* (track + play controls) |
 | **Stays connected** | Reconnects by itself when the iPhone is back in range, and after a watch reboot or app update |
 | **Filters** | Per-category toggles, Do Not Disturb, silent and pre-existing notifications, vibration on/off |
 | **Updates on the watch** | Check, download and install new releases from Settings — no computer needed after the first install |
@@ -82,7 +82,13 @@ iPhone notifications arrive as regular Wear OS notifications, so they look and b
 
 ### iPhone media controls
 
-On the WatchBridge home screen, tap **Now Playing**.
+Three ways in, all from the same WatchBridge install:
+
+- **Music Control** app icon: WatchBridge adds a second icon to the watch's app list that opens straight into the player.
+- **Music Control** tile: the current track with previous / play-pause / next buttons, right next to your watch face. Tap the track name for the full player.
+- **Now Playing** on the WatchBridge home screen.
+
+The full player:
 
 - Shows the playing app, song title and artist, with a ring around the screen for the song's progress.
 - **Previous / Play-Pause / Next** buttons, and **volume** buttons with the current level.
@@ -91,11 +97,13 @@ On the WatchBridge home screen, tap **Now Playing**.
 
 This uses Apple Media Service (AMS), which, like ANCS, is built into iOS — no iPhone app needed.
 
-### Connection tile
+### Tiles
 
-Add the **iPhone connection** tile: on the watch, swipe to your tiles, press and hold one, then tap **+** and pick WatchBridge.
+WatchBridge has two tiles. To add one: on the watch, swipe to your tiles, press and hold one, then tap **+** and pick **iPhone connection** or **Music Control**.
 
-The tile shows the connection state at a glance — *Connected*, *Connecting…*, *iPhone out of range*, *Disconnected* — with a button that reconnects in one tap (or opens the app when there's nothing to fix).
+The **Music Control** tile shows the playing app, track and artist, with previous / play-pause / next buttons (see *iPhone media controls*).
+
+The **iPhone connection** tile shows the connection state at a glance — *Connected*, *Connecting…*, *iPhone out of range*, *Disconnected* — with a button that reconnects in one tap (or opens the app when there's nothing to fix).
 
 ### Staying connected
 
@@ -207,7 +215,7 @@ If you prefer to run ADB commands yourself:
 
 **Turning the bezel doesn't change the volume** — The Now Playing screen needs to be open and in front. Some players ignore remote volume changes; the volume buttons are greyed out for those.
 
-**Can't find the tile** — In the tile picker it's called **iPhone connection** (from WatchBridge). Tiles have to be added once by hand; see *Connection tile* above.
+**Can't find the tiles** — In the tile picker they're called **iPhone connection** and **Music Control** (from WatchBridge). Tiles have to be added once by hand; see *Tiles* above.
 
 **Settings says "No release with an APK on GitHub yet"** — Nothing has been published on this repo's [Releases](https://github.com/Irwanripansyahh/watchbridge/releases) page yet; see *Cutting a release*.
 
@@ -254,7 +262,7 @@ The **iPhone acts as the BLE Central + GATT Server**, exposing the ANCS service.
 - `app/src/main/java/com/watchbridge/ams/` — Apple Media Service: now-playing state and remote commands.
 - `app/src/main/java/com/watchbridge/notification/` — Mapping ANCS models to native `NotificationCompat` (channels, grouping, conversations, app icons).
 - `app/src/main/java/com/watchbridge/service/` — Foreground service for connection continuity, boot receiver.
-- `app/src/main/java/com/watchbridge/tile/` — Connection status tile and its reconnect action.
+- `app/src/main/java/com/watchbridge/tile/` — Connection and media tiles, and the tile's reconnect action.
 - `app/src/main/java/com/watchbridge/update/` — Over-the-air updates from GitHub Releases.
 - `app/src/main/java/com/watchbridge/ui/` — Compose screens (Home, Pairing, Settings, Now Playing, calls).
 - `app/src/main/assets/app_icons/` — Bundled iPhone app icons, named by bundle ID.
