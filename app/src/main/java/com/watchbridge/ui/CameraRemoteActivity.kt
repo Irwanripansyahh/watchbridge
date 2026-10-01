@@ -53,6 +53,11 @@ import kotlinx.coroutines.delay
  */
 class CameraRemoteActivity : ComponentActivity() {
 
+    private companion object {
+        const val PREFS_NAME = "camera_remote"
+        const val KEY_TIMER_SECONDS = "timer_seconds"
+    }
+
     private lateinit var remote: CameraRemote
 
     private val permissionLauncher = registerForActivityResult(
@@ -67,11 +72,15 @@ class CameraRemoteActivity : ComponentActivity() {
         // Framing a shot takes a while; don't let the watch screen go dark meanwhile
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
+        val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+
         setContent {
             WatchBridgeTheme {
                 val status by remote.status.collectAsState()
                 CameraRemoteScreen(
                     status = status,
+                    initialTimerSeconds = prefs.getInt(KEY_TIMER_SECONDS, 0),
+                    onTimerChange = { prefs.edit().putInt(KEY_TIMER_SECONDS, it).apply() },
                     onShutter = remote::shutter,
                     onRetry = remote::reconnect
                 )
@@ -97,22 +106,35 @@ class CameraRemoteActivity : ComponentActivity() {
     }
 }
 
-private const val TIMER_SECONDS = 3
+/** Self-timer choices, cycled by the chip: 0 = take the photo right away. */
+private val TIMER_OPTIONS = listOf(0, 3, 5)
 
 @Composable
 private fun CameraRemoteScreen(
     status: CameraRemote.Status,
+    initialTimerSeconds: Int,
+    onTimerChange: (Int) -> Unit,
     onShutter: () -> Boolean,
     onRetry: () -> Unit
 ) {
     val haptics = LocalHapticFeedback.current
+    var timerSeconds by remember {
+        mutableIntStateOf(initialTimerSeconds.takeIf { it in TIMER_OPTIONS } ?: 0)
+    }
     var countdown by remember { mutableIntStateOf(0) }
+
+    fun takePhoto() {
+        if (onShutter()) haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+    }
 
     LaunchedEffect(countdown) {
         if (countdown > 0) {
             delay(1000)
             if (countdown == 1) {
-                if (onShutter()) haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                takePhoto()
+            } else {
+                // A light tick each second, so the countdown can be felt without looking
+                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
             }
             countdown -= 1
         }
@@ -146,10 +168,11 @@ private fun CameraRemoteScreen(
                 Button(
                     onClick = {
                         when {
-                            connected && countdown == 0 -> {
-                                if (onShutter()) haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                            }
                             !connected -> onRetry()
+                            // Tapping again during the countdown cancels it
+                            countdown > 0 -> countdown = 0
+                            timerSeconds == 0 -> takePhoto()
+                            else -> countdown = timerSeconds
                         }
                     },
                     colors = ButtonDefaults.primaryButtonColors(),
@@ -169,9 +192,13 @@ private fun CameraRemoteScreen(
                 Spacer(Modifier.height(10.dp))
 
                 CompactChip(
-                    onClick = { if (countdown == 0) countdown = TIMER_SECONDS else countdown = 0 },
-                    enabled = connected,
-                    label = { Text(if (countdown > 0) "Cancel" else "Timer ${TIMER_SECONDS}s") },
+                    onClick = {
+                        val next = TIMER_OPTIONS[(TIMER_OPTIONS.indexOf(timerSeconds) + 1) % TIMER_OPTIONS.size]
+                        timerSeconds = next
+                        onTimerChange(next)
+                    },
+                    enabled = countdown == 0,
+                    label = { Text(if (timerSeconds == 0) "Instant" else "Timer ${timerSeconds}s") },
                     colors = ChipDefaults.secondaryChipColors()
                 )
             }

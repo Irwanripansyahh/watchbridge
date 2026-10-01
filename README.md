@@ -8,7 +8,7 @@ Your iPhone's notifications, calls and music controls, right on your Galaxy Watc
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 > **Forked from [rajtiwariee/watchbridge](https://github.com/rajtiwariee/watchbridge).** Thanks to the original author for the BLE/ANCS foundation.
-> This fork adds: native Wear OS notifications with each app's real icon and original time, per-app stacks and chat conversations, iPhone media controls (AMS), a connection tile, never-give-up reconnect plus auto-start after reboot, in-app updates from GitHub Releases, more reliable notification loading when many arrive at once, and a working vibration toggle.
+> This fork adds: native Wear OS notifications with each app's real icon and original time, per-app stacks and chat conversations, iPhone media controls (AMS), a camera remote for the iPhone, a connection tile, never-give-up reconnect plus auto-start after reboot, in-app updates from GitHub Releases, more reliable notification loading when many arrive at once, and a working vibration toggle.
 
 WatchBridge is a single Wear OS app that runs on your **Galaxy Watch 4 or newer (Wear OS 3+)** and connects to an iPhone over BLE to receive notifications and call alerts, and to control the iPhone's music, using Apple's ANCS (Apple Notification Center Service) and AMS (Apple Media Service) protocols.
 
@@ -16,7 +16,7 @@ WatchBridge is a single Wear OS app that runs on your **Galaxy Watch 4 or newer 
 
 There is **nothing to install on the iPhone** — no App Store app, no TestFlight, no jailbreak, and no iPhone app running in the background that iOS could close. You only pair the watch once in the iPhone's **Settings → Bluetooth**, like a pair of headphones.
 
-This works because notifications (ANCS) and media controls (AMS) are services **built into iOS** itself: iOS offers them to any Bluetooth device it's paired with. WatchBridge on the watch is the only app involved.
+This works because notifications (ANCS) and media controls (AMS) are services **built into iOS** itself: iOS offers them to any Bluetooth device it's paired with. The camera remote works like any Bluetooth selfie stick. WatchBridge on the watch is the only app involved.
 
 ---
 
@@ -52,7 +52,8 @@ This works because notifications (ANCS) and media controls (AMS) are services **
 | **Two-way dismissal** | Dismissing on the watch clears it on the iPhone, and vice versa |
 | **Calls** | Full-screen incoming call with Accept / Decline; ongoing call screen with timer and hang-up |
 | **iPhone media controls** | Play/pause, next/previous and volume for Spotify, Apple Music, YouTube Music, podcasts... Turn the bezel/crown for volume. Has its own **Music Control** app icon and tile |
-| **Tiles** | *iPhone connection* (status + one-tap reconnect) and *Music Control* (track + play controls) |
+| **Camera Remote** | Shutter button for the iPhone Camera app with an Instant / 3 s / 5 s self-timer. Has its own **Camera Remote** app icon |
+| **Tiles** | *iPhone connection* (status + one-tap reconnect) and *Music Control* (track, play controls and volume) |
 | **Stays connected** | Reconnects by itself when the iPhone is back in range, and after a watch reboot or app update |
 | **Filters** | Per-category toggles, Do Not Disturb, silent and pre-existing notifications, vibration on/off |
 | **Updates on the watch** | Check, download and install new releases from Settings — no computer needed after the first install |
@@ -100,11 +101,24 @@ The full player:
 
 This uses Apple Media Service (AMS), which, like ANCS, is built into iOS — no iPhone app needed.
 
+### Camera remote
+
+Take photos on the iPhone from your wrist — handy for group shots and selfies with the iPhone propped up.
+
+1. Open the **Camera** app on the iPhone.
+2. On the watch, open **Camera Remote** from the app list.
+3. Tap the big shutter button.
+
+- **Self-timer:** the chip under the shutter cycles **Instant → Timer 3s → Timer 5s**, and WatchBridge remembers your choice. The countdown shows on the button with a light buzz each second; tap the button again to cancel.
+- Works like a Bluetooth selfie stick: the watch presses the iPhone's **Volume Up**, which the Camera app uses as its shutter. In Video mode it starts and stops recording.
+- The watch only acts as a remote while the Camera Remote screen is open, and keeps its screen on meanwhile.
+- It's an experimental feature: it needs the watch's Bluetooth to support acting as an input device (Galaxy Watch7 does). If not, the screen says *Not supported on this watch*.
+
 ### Tiles
 
 WatchBridge has two tiles. To add one: on the watch, swipe to your tiles, press and hold one, then tap **+** and pick **iPhone connection** or **Music Control**.
 
-The **Music Control** tile shows the playing app, track and artist, with previous / play-pause / next buttons (see *iPhone media controls*).
+The **Music Control** tile shows the playing app, track and artist, with previous / play-pause / next buttons and volume down / up (see *iPhone media controls*). The bezel only changes the volume in the full player; tiles only take taps.
 
 The **iPhone connection** tile shows the connection state at a glance — *Connected*, *Connecting…*, *iPhone out of range*, *Disconnected* — with a button that reconnects in one tap (or opens the app when there's nothing to fix).
 
@@ -226,6 +240,10 @@ If you prefer to run ADB commands yourself:
 
 **"Allow installing updates" doesn't open anything** — The watch has no *Install unknown apps* screen. Run `adb shell appops set com.watchbridge REQUEST_INSTALL_PACKAGES allow` once from a computer (the install scripts already do this).
 
+**Camera Remote stays on "Connecting to iPhone…"** — The camera remote uses the watch's regular Bluetooth pairing with the iPhone (the one used for calls), not just the WatchBridge connection. On the iPhone, check **Settings → Bluetooth** shows the Galaxy Watch as connected, then close and reopen Camera Remote. Tapping the shutter while it's not connected retries.
+
+**The iPhone's on-screen keyboard disappears** — iOS hides it while a Bluetooth input device is connected. Camera Remote only declares media keys (not a keyboard) and disconnects as soon as you leave its screen; if the keyboard is still hidden, close Camera Remote.
+
 **Pairing code expired** — The code on the "Pair new device" screen rotates. If `adb pair` fails, re-open that screen on the watch to get a fresh code.
 
 **App won't update / "signatures don't match"** — You probably installed a debug build (signed with your developer key) and are now trying to install the official release (signed with the project key). Uninstall first: `adb uninstall com.watchbridge`, then install the release.
@@ -245,6 +263,8 @@ The **iPhone acts as the BLE Central + GATT Server**, exposing the ANCS service.
 **Notification rendering:** ANCS only sends an app's bundle ID (e.g. `net.whatsapp.WhatsApp`). The watch maps it to the app's icon — first from the icons bundled in the APK, then from its cache, and finally from the App Store (iTunes Lookup API). Notifications are grouped by bundle ID; "Social" notifications with a sender and message are merged per chat into a `MessagingStyle` notification.
 
 **Reconnection:** after a disconnect the watch retries with exponential backoff (1 s → 60 s) for 8 attempts, then hands over to Android's `autoConnect`, a low-power background connection with no timeout. A `BOOT_COMPLETED` / `MY_PACKAGE_REPLACED` receiver restarts the bridge after a reboot or update.
+
+**Camera remote:** the watch registers as a Bluetooth Classic HID device (`BluetoothHidDevice`) with a single consumer-control report (Volume Up / Volume Down) and connects to the paired iPhone. Classic runs alongside the BLE link used for ANCS/AMS, since two devices can only share one BLE link. The HID app is registered only while the Camera Remote screen is open.
 
 **Updates:** the app reads the latest release from the GitHub API, downloads the `.apk` asset over an unmetered network (Wi-Fi) when one is available, checks that it's signed with the same key as the installed app, and installs it through a `PackageInstaller` session.
 
@@ -267,7 +287,8 @@ The **iPhone acts as the BLE Central + GATT Server**, exposing the ANCS service.
 - `app/src/main/java/com/watchbridge/service/` — Foreground service for connection continuity, boot receiver.
 - `app/src/main/java/com/watchbridge/tile/` — Connection and media tiles, and the tile's reconnect action.
 - `app/src/main/java/com/watchbridge/update/` — Over-the-air updates from GitHub Releases.
-- `app/src/main/java/com/watchbridge/ui/` — Compose screens (Home, Pairing, Settings, Now Playing, calls).
+- `app/src/main/java/com/watchbridge/camera/` — Camera remote: Bluetooth HID shutter for the iPhone.
+- `app/src/main/java/com/watchbridge/ui/` — Compose screens and the extra launcher activities (Home, Pairing, Settings, Now Playing / Music Control, Camera Remote, calls).
 - `app/src/main/assets/app_icons/` — Bundled iPhone app icons, named by bundle ID.
 
 ### Bundled app icons
@@ -281,6 +302,7 @@ python3 scripts/fetch_app_icons.py
 ./gradlew :app:assembleDebug
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
+Debug builds use the package `com.watchbridge.debug` and show up as **WatchBridge (debug)**, so they install next to the release app instead of replacing it (and its iPhone pairing).
 
 ### Unit tests
 ```bash
@@ -338,10 +360,8 @@ Notification content never leaves the watch. The only network traffic is:
 ---
 
 ## Known Issues / Risks
-- **Background kills:** Wear OS aggressively manages background services. The foreground service tries its best to stay alive, and the bridge restarts itself after a reboot or update; if it's ever killed otherwise, opening the app or tapping **Reconnect** on the tile brings it back.
-- **Media controls:** Volume and skip buttons depend on what the playing app supports; unsupported buttons are disabled.
-- **Chat grouping:** Conversations are matched by the sender / chat name iOS puts in the notification. An app that formats these differently may show a group chat split up, or as separate cards.
-- **iOS version variances:** The "Active Call" category (12) is undocumented by Apple, so call hang-up behavior may vary across iOS 15–18.
+- **Background kills:** Wear OS aggressively manages background services. The foreground service tries its best to stay alive, and the bridge restarts itself after a reboot or update; if it's ever killed otherwise, opening the app or tapping 
+
 - **Bond drops:** Rarely, the iPhone may forget the bonding keys. Workaround: "Forget Device" on the iPhone and re-pair.
 
 ---
