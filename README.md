@@ -1,12 +1,14 @@
 # WatchBridge
 
+### Connect your Wear OS Galaxy Watch to an iPhone — no companion app needed.
+
+Your iPhone's notifications, calls and music controls, right on your Galaxy Watch. Free and open source.
+
 [![Latest Release](https://img.shields.io/github/v/release/Irwanripansyahh/watchbridge?label=Download&color=brightgreen)](https://github.com/Irwanripansyahh/watchbridge/releases/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 > **Forked from [rajtiwariee/watchbridge](https://github.com/rajtiwariee/watchbridge).** Thanks to the original author for the BLE/ANCS foundation.
 > This fork adds: native Wear OS notifications with each app's real icon and original time, per-app stacks and chat conversations, iPhone media controls (AMS), a connection tile, never-give-up reconnect plus auto-start after reboot, in-app updates from GitHub Releases, more reliable notification loading when many arrive at once, and a working vibration toggle.
-
-**Free, open-source notification bridge for Wear OS watches and iPhones — no companion app on the iPhone.**
 
 WatchBridge is a single Wear OS app that runs on your **Galaxy Watch 4 or newer (Wear OS 3+)** and connects to an iPhone over BLE to receive notifications and call alerts, and to control the iPhone's music, using Apple's ANCS (Apple Notification Center Service) and AMS (Apple Media Service) protocols.
 
