@@ -68,6 +68,19 @@
             </intent-filter>
         </activity>
 
+        <!-- Third launcher icon, "Camera Remote": shutter button for the iPhone Camera app -->
+        <activity
+            android:name=".ui.CameraRemoteActivity"
+            android:exported="true"
+            android:icon="@drawable/ic_launcher_camera"
+            android:label="@string/camera_app_name"
+            android:taskAffinity="com.watchbridge.camera">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
         <activity
             android:name=".ui.IncomingCallActivity"
             android:exported="false"

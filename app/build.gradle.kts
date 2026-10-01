@@ -29,6 +29,11 @@ android {
     }
 
     buildTypes {
+        debug {
+            // Installs next to the release app instead of replacing it (different signing key)
+            applicationIdSuffix = ".debug"
+            versionNameSuffix = "-debug"
+        }
         release {
             isMinifyEnabled = true
             proguardFiles(

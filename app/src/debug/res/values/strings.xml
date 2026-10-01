@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Launcher names for debug builds, so they can be told apart from the release app -->
+<resources>
+    <string name="app_name">WatchBridge (debug)</string>
+    <string name="media_app_name">Music Control (debug)</string>
+    <string name="camera_app_name">Camera Remote (debug)</string>
+</resources>
