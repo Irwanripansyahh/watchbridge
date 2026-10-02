@@ -97,6 +97,10 @@ class AmsMediaManager(private val connectionManager: BleConnectionManager) {
         sendCommand(command)
     }
 
+    fun play() = sendCommand(AmsConstants.COMMAND_PLAY)
+
+    fun pause() = sendCommand(AmsConstants.COMMAND_PAUSE)
+
     fun nextTrack() = sendCommand(AmsConstants.COMMAND_NEXT_TRACK)
 
     fun previousTrack() = sendCommand(AmsConstants.COMMAND_PREVIOUS_TRACK)

@@ -87,6 +87,10 @@ dependencies {
     implementation(libs.wear.protolayout.material)
     implementation(libs.androidx.concurrent.futures)
 
+    // Media session + Ongoing Activity
+    implementation(libs.androidx.media)
+    implementation(libs.wear.ongoing)
+
     // Nordic BLE
     implementation(libs.nordic.ble.ktx)
     implementation(libs.nordic.ble.common)

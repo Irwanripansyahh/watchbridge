@@ -16,6 +16,7 @@ import com.watchbridge.MainActivity
 import com.watchbridge.R
 import com.watchbridge.WatchBridgeApp
 import com.watchbridge.ams.AmsMediaManager
+import com.watchbridge.ams.MediaSessionBridge
 import com.watchbridge.ancs.AncsSessionManager
 import com.watchbridge.ble.BleAdvertiser
 import com.watchbridge.ble.BleConnectionManager
@@ -77,6 +78,7 @@ class WatchBridgeService : Service() {
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var wakeLock: PowerManager.WakeLock? = null
     private var actionReceiver: NotificationActionReceiver? = null
+    private var mediaSessionBridge: MediaSessionBridge? = null
 
     /** Pauses reconnecting while the watch's Bluetooth is off, resumes when it's back on. */
     private val bluetoothStateReceiver = object : BroadcastReceiver() {
@@ -202,6 +204,13 @@ class WatchBridgeService : Service() {
             }
         }
 
+        // The phone's now playing, as a media session the watch's own media controls can use
+        val sessionBridge = MediaSessionBridge(this, media)
+        mediaSessionBridge = sessionBridge
+        serviceScope.launch(Dispatchers.Main) {
+            media.state.collect { sessionBridge.update(it) }
+        }
+
         // The connection tile shows the iPhone's battery
         serviceScope.launch {
             connMgr.phoneBattery.collect { ConnectionTileService.requestUpdate(this@WatchBridgeService) }
@@ -268,6 +277,8 @@ class WatchBridgeService : Service() {
 
         releaseWakeLock()
         serviceScope.cancel()
+        mediaSessionBridge?.release()
+        mediaSessionBridge = null
 
         connectionManager = null
         sessionManager = null

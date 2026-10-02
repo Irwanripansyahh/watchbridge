@@ -51,7 +51,7 @@ This works because notifications (ANCS) and media controls (AMS) are services **
 | **Chat conversations** | Messages from the same chat are shown together in the native Wear OS chat layout |
 | **Two-way dismissal** | Dismissing on the watch clears it on the iPhone, and vice versa |
 | **Calls** | Full-screen incoming call with Accept / Decline; ongoing call screen with timer and hang-up |
-| **iPhone media controls** | Play/pause, next/previous and volume for Spotify, Apple Music, YouTube Music, podcasts... Turn the bezel/crown for volume. Has its own **Music Control** app icon and tile |
+| **iPhone media controls** | Play/pause, next/previous and volume for Spotify, Apple Music, YouTube Music, podcasts... Turn the bezel/crown for volume. Has its own **Music Control** app icon and tile, works with the watch's built-in media controls, and shows a music icon at the bottom of the watch face while playing |
 | **Camera Remote** | Shutter button for the iPhone Camera app with an Instant / 3 s / 5 s self-timer. Has its own **Camera Remote** app icon |
 | **Tiles** | *Phone connection* (iPhone name, battery, status + one-tap reconnect) and *Music Control* (track, play controls and volume) |
 | **Stays connected** | Reconnects by itself when the iPhone is back in range, and after a watch reboot or app update |
@@ -91,6 +91,12 @@ Three ways in, all from the same WatchBridge install:
 - **Music Control** app icon: WatchBridge adds a second icon to the watch's app list that opens straight into the player.
 - **Music Control** tile: the current track with previous / play-pause / next buttons, right next to your watch face. Tap the track name for the full player.
 - **Now Playing** on the WatchBridge home screen.
+
+It also shows up like music played on the watch itself:
+
+- **Built-in media controls:** the watch's own media controls (and anything else that controls watch media) show the track and can play/pause, skip and change the volume — it all goes to the phone.
+- **On the watch face:** while music plays, a music icon sits at the bottom of the watch face. Tap it to open Music Control.
+- **Now playing notification:** with previous / play-pause / next buttons. It can be swiped away while paused.
 
 The full player:
 
@@ -266,6 +272,8 @@ The **iPhone acts as the BLE Central + GATT Server**, exposing the ANCS service.
 **Notification rendering:** ANCS only sends an app's bundle ID (e.g. `net.whatsapp.WhatsApp`). The watch maps it to the app's icon — first from the icons bundled in the APK, then from its cache, and finally from the App Store (iTunes Lookup API). Notifications are grouped by bundle ID; "Social" notifications with a sender and message are merged per chat into a `MessagingStyle` notification.
 
 **Reconnection:** after a disconnect the watch retries with exponential backoff (1 s → 60 s) for 8 attempts, then hands over to Android's `autoConnect`, a low-power background connection with no timeout. Reconnecting pauses while the watch's Bluetooth is off (`ACTION_STATE_CHANGED`) and starts over when it's back on. A `BOOT_COMPLETED` / `MY_PACKAGE_REPLACED` receiver restarts the bridge after a reboot or update.
+
+**Media session:** the AMS now-playing state is mirrored into an Android `MediaSession` (metadata, playback state with position, remote volume via `VolumeProviderCompat`), so system media controllers can show and control it. A `MediaStyle` notification carries an `OngoingActivity`, which puts the music icon on the watch face while playing.
 
 **Camera remote:** the watch registers as a Bluetooth Classic HID device (`BluetoothHidDevice`) with a single consumer-control report (Volume Up / Volume Down) and connects to the paired iPhone. Classic runs alongside the BLE link used for ANCS/AMS, since two devices can only share one BLE link. The HID app is registered only while the Camera Remote screen is open.
 

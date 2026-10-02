@@ -11,6 +11,7 @@ class WatchBridgeApp : Application() {
     companion object {
         const val SERVICE_CHANNEL_ID = "watchbridge_service"
         const val CONNECTION_ALERTS_CHANNEL_ID = "watchbridge_connection_alerts"
+        const val MEDIA_CHANNEL_ID = "watchbridge_media"
     }
 
     override fun onCreate() {
@@ -38,7 +39,16 @@ class WatchBridgeApp : Application() {
             setShowBadge(false)
         }
 
+        val media = NotificationChannel(
+            MEDIA_CHANNEL_ID,
+            "Now playing",
+            NotificationManager.IMPORTANCE_LOW
+        ).apply {
+            description = "Music playing on your phone, with playback controls"
+            setShowBadge(false)
+        }
+
         val nm = getSystemService(NotificationManager::class.java)
-        nm.createNotificationChannels(listOf(channel, alerts))
+        nm.createNotificationChannels(listOf(channel, alerts, media))
     }
 }

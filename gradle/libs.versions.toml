@@ -12,6 +12,8 @@ navigationCompose = "1.4.0"
 wearTiles = "1.4.1"
 protolayout = "1.2.1"
 concurrentFutures = "1.1.0"
+media = "1.7.0"
+wearOngoing = "1.0.0"
 junit = "4.13.2"
 
 [libraries]
@@ -42,6 +44,10 @@ androidx-concurrent-futures = { group = "androidx.concurrent", name = "concurren
 # Nordic BLE
 nordic-ble-ktx = { group = "no.nordicsemi.android", name = "ble-ktx", version.ref = "nordicBle" }
 nordic-ble-common = { group = "no.nordicsemi.android", name = "ble-common", version.ref = "nordicBle" }
+
+# Media session + Ongoing Activity (now playing on the watch face)
+androidx-media = { group = "androidx.media", name = "media", version.ref = "media" }
+wear-ongoing = { group = "androidx.wear", name = "wear-ongoing", version.ref = "wearOngoing" }
 
 # Testing
 junit = { group = "junit", name = "junit", version.ref = "junit" }

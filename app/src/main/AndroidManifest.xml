@@ -118,6 +118,11 @@
             android:name=".update.UpdateInstallReceiver"
             android:exported="false" />
 
+        <!-- Buttons on the now playing notification -->
+        <receiver
+            android:name=".ams.MediaActionReceiver"
+            android:exported="false" />
+
         <!-- Connection status tile -->
         <service
             android:name=".tile.ConnectionTileService"
