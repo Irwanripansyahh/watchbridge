@@ -1,11 +1,17 @@
 #!/usr/bin/env bash
 # WatchBridge installer for macOS / Linux — a step-by-step guide.
-# Usage: put this script next to watchbridge-X.Y.Z.apk, then run:  ./install.sh
+#
+# Downloads the latest WatchBridge from GitHub Releases and installs it on the watch.
+# Run it straight from GitHub:
+#   bash <(curl -fsSL https://raw.githubusercontent.com/Irwanripansyahh/watchbridge/master/scripts/install.sh)
+# or download it and run:  ./install.sh
+# To install a specific version instead, put its watchbridge-X.Y.Z.apk next to this script.
 
 set -uo pipefail
 
 PACKAGE="com.watchbridge"
-RELEASES_URL="https://github.com/Irwanripansyahh/watchbridge/releases/latest"
+REPO="Irwanripansyahh/watchbridge"
+RELEASES_URL="https://github.com/$REPO/releases/latest"
 TOTAL_STEPS=6
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -33,10 +39,16 @@ wait_enter() {
   read -r -p "  ${DIM}Press Enter when you're done...${RESET} " _
 }
 
-ask_yes_no() {  # ask_yes_no "Question?" → returns 0 for yes
+ask_yes_no() {  # ask_yes_no "Question?" → returns 0 for yes (default no)
   local answer
   read -r -p "  $1 [y/N] " answer
   [[ "$answer" =~ ^[Yy] ]]
+}
+
+ask_yes() {  # ask_yes "Question?" → returns 0 for yes (default yes)
+  local answer
+  read -r -p "  $1 [Y/n] " answer
+  [[ ! "$answer" =~ ^[Nn] ]]
 }
 
 quit() {
@@ -52,7 +64,8 @@ echo
 echo "${BOLD}  WatchBridge installer${RESET}"
 echo "  ${DIM}Phone notifications, calls and music controls on your Galaxy Watch${RESET}"
 echo
-say "This guide installs WatchBridge on your watch, one step at a time."
+say "This guide downloads the latest WatchBridge and installs it on your watch,"
+say "one step at a time."
 say "It takes about 3 minutes. You'll need:"
 say "  • your watch, charged, with Wi-Fi on"
 say "  • this computer on the ${BOLD}same Wi-Fi network${RESET} as the watch"
@@ -62,35 +75,80 @@ say "Type ${BOLD}q${RESET} at any question to stop."
 
 # --- Checks -------------------------------------------------------------------
 
+# An APK next to the script wins (to install a specific version); otherwise get the latest
 APK="$(ls -1 "$SCRIPT_DIR"/watchbridge-*.apk 2>/dev/null | tail -1 || true)"
 echo
-if [ -z "$APK" ]; then
-  fail "Couldn't find watchbridge-*.apk next to this script."
-  say "Download it from: $RELEASES_URL"
-  say "and put it in the same folder as install.sh, then run this again."
-  exit 1
-fi
-ok "Found $(basename "$APK")"
-
-if ! command -v adb >/dev/null 2>&1; then
-  fail "'adb' (Android platform-tools) isn't installed. It's what talks to the watch."
-  if [[ "$(uname)" == "Darwin" ]] && command -v brew >/dev/null 2>&1; then
-    if ask_yes_no "Install it now with Homebrew?"; then
-      brew install --cask android-platform-tools || { fail "Homebrew couldn't install it."; exit 1; }
-    else
-      say "Install it with:  brew install --cask android-platform-tools"
-      exit 1
-    fi
-  elif [[ "$(uname)" == "Darwin" ]]; then
-    say "Install Homebrew (https://brew.sh), then run:  brew install --cask android-platform-tools"
-    exit 1
-  else
-    say "Install it with:  sudo apt install adb"
-    say "or download it from: https://developer.android.com/tools/releases/platform-tools"
+if [ -n "$APK" ]; then
+  ok "Using $(basename "$APK") from this folder"
+else
+  say "Getting the latest WatchBridge from GitHub..."
+  if ! command -v curl >/dev/null 2>&1; then
+    fail "'curl' is needed to download WatchBridge."
+    say "Or download the .apk from $RELEASES_URL, put it next to this script and run it again."
     exit 1
   fi
+  RELEASE_JSON="$(curl -fsSL "https://api.github.com/repos/$REPO/releases/latest" 2>/dev/null || true)"
+  APK_URL="$(printf '%s' "$RELEASE_JSON" \
+    | grep -o '"browser_download_url": *"[^"]*\.apk"' | head -1 \
+    | sed 's/.*"\(https[^"]*\)"$/\1/')"
+  if [ -z "$APK_URL" ]; then
+    fail "Couldn't find WatchBridge on GitHub."
+    say "Check the internet connection, or download the .apk from $RELEASES_URL,"
+    say "put it next to this script and run it again."
+    exit 1
+  fi
+  APK="$(mktemp -d)/$(basename "$APK_URL")"
+  if ! curl -fL --progress-bar -o "$APK" "$APK_URL"; then
+    fail "The download didn't finish. Check the internet connection and run this again."
+    exit 1
+  fi
+  ok "Downloaded $(basename "$APK")"
 fi
-ok "adb is installed"
+
+# adb (Android platform-tools) is what talks to the watch. If it's missing, offer Google's
+# official download into a WatchBridge folder (no Homebrew, sudo or admin rights needed);
+# later runs reuse it.
+TOOLS_DIR="$HOME/.watchbridge"
+[ -x "$TOOLS_DIR/platform-tools/adb" ] && export PATH="$TOOLS_DIR/platform-tools:$PATH"
+
+if ! command -v adb >/dev/null 2>&1; then
+  warn "'adb' (Android platform-tools) isn't installed yet. It's what talks to the watch."
+  case "$(uname -s)" in
+    Darwin) PT_OS="darwin" ;;
+    Linux)  PT_OS="linux" ;;
+    *)      PT_OS="" ;;
+  esac
+  if [ -n "$PT_OS" ] && command -v curl >/dev/null 2>&1 \
+    && ask_yes "Download it now from Google (about 10-15 MB)?"; then
+    say "${DIM}Saved in $TOOLS_DIR, only used by this installer."
+    say "Downloading it means you accept the Android SDK terms: https://developer.android.com/studio/terms${RESET}"
+    PT_ZIP="$(mktemp -d)/platform-tools.zip"
+    if curl -fL --progress-bar -o "$PT_ZIP" \
+      "https://dl.google.com/android/repository/platform-tools-latest-$PT_OS.zip"; then
+      mkdir -p "$TOOLS_DIR"
+      if command -v unzip >/dev/null 2>&1; then
+        unzip -qo "$PT_ZIP" -d "$TOOLS_DIR"
+      elif command -v python3 >/dev/null 2>&1; then
+        # Python's unzip drops the executable bit
+        python3 -m zipfile -e "$PT_ZIP" "$TOOLS_DIR" && chmod +x "$TOOLS_DIR/platform-tools/adb"
+      fi
+      rm -f "$PT_ZIP"
+      [ -x "$TOOLS_DIR/platform-tools/adb" ] && export PATH="$TOOLS_DIR/platform-tools:$PATH"
+    fi
+  fi
+fi
+
+if ! command -v adb >/dev/null 2>&1; then
+  fail "adb is still missing. Install it, then run this installer again:"
+  if [[ "$(uname)" == "Darwin" ]]; then
+    say "  brew install --cask android-platform-tools"
+  else
+    say "  sudo apt install adb"
+  fi
+  say "  or download it from: https://developer.android.com/tools/releases/platform-tools"
+  exit 1
+fi
+ok "adb is ready"
 
 # A watch that's already connected over Wi-Fi lets us skip pairing
 CONN_ADDR="$(adb devices | awk 'NR>1 && $2=="device" {print $1}' | head -1)"

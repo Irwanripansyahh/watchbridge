@@ -1,10 +1,13 @@
 @echo off
 REM WatchBridge installer for Windows - a step-by-step guide.
-REM Usage: put this script next to watchbridge-X.Y.Z.apk, then double-click it.
+REM Downloads the latest WatchBridge from GitHub Releases and installs it on the watch.
+REM Usage: double-click it. To install a specific version instead, put its
+REM watchbridge-X.Y.Z.apk next to this script.
 
 setlocal EnableDelayedExpansion
 
 set "PACKAGE=com.watchbridge"
+set "REPO=Irwanripansyahh/watchbridge"
 set "RELEASES_URL=https://github.com/Irwanripansyahh/watchbridge/releases/latest"
 set "SCRIPT_DIR=%~dp0"
 set "TMP_OUT=%TEMP%\watchbridge_install.txt"
@@ -14,7 +17,8 @@ echo.
 echo   WatchBridge installer
 echo   Phone notifications, calls and music controls on your Galaxy Watch
 echo.
-echo   This guide installs WatchBridge on your watch, one step at a time.
+echo   This guide downloads the latest WatchBridge and installs it on your watch,
+echo   one step at a time.
 echo   It takes about 3 minutes. You'll need:
 echo     - your watch, charged, with Wi-Fi on
 echo     - this computer on the SAME Wi-Fi network as the watch
@@ -25,15 +29,28 @@ echo.
 
 REM --- Checks -----------------------------------------------------------------
 
+REM An APK next to the script wins (to install a specific version); otherwise get the latest
 set "APK="
 for %%F in ("%SCRIPT_DIR%watchbridge-*.apk") do set "APK=%%~fF"
-if not defined APK (
-  echo   [X] Couldn't find watchbridge-*.apk next to this script.
-  echo       Download it from: %RELEASES_URL%
-  echo       and put it in the same folder as install.bat, then run this again.
+if defined APK (
+  for %%F in ("!APK!") do echo   [OK] Using %%~nxF from this folder
+  goto :have_apk
+)
+
+echo   Getting the latest WatchBridge from GitHub (about 3 MB)...
+set "APK=%TEMP%\watchbridge-latest.apk"
+set "APK_NAME="
+for /f "usebackq delims=" %%N in (`powershell -NoProfile -ExecutionPolicy Bypass -Command "$ErrorActionPreference='Stop'; $ProgressPreference='SilentlyContinue'; [Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12; try { $r=Invoke-RestMethod -Uri 'https://api.github.com/repos/%REPO%/releases/latest' -Headers @{'User-Agent'='WatchBridge-installer'}; $a=$r.assets | Where-Object { $_.name -like '*.apk' } | Select-Object -First 1; Invoke-WebRequest -Uri $a.browser_download_url -OutFile (Join-Path $env:TEMP 'watchbridge-latest.apk') -UseBasicParsing; Write-Output $a.name } catch { }"`) do set "APK_NAME=%%N"
+if not defined APK_NAME (
+  echo   [X] Couldn't download WatchBridge from GitHub.
+  echo       Check the internet connection, or download the .apk from:
+  echo       %RELEASES_URL%
+  echo       put it next to install.bat and run this again.
   goto :end_fail
 )
-for %%F in ("%APK%") do echo   [OK] Found %%~nxF
+echo   [OK] Downloaded !APK_NAME!
+
+:have_apk
 
 where adb >nul 2>nul
 if errorlevel 1 (

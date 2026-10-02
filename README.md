@@ -2,6 +2,10 @@
 
 ### Use your Samsung Galaxy Watch with an iPhone — no companion app needed.
 
+<p align="center">
+  <img src="docs/social-preview.png" width="100%" alt="WatchBridge: iPhone notifications, calls and music controls on a Samsung Galaxy Watch, no companion app">
+</p>
+
 Get your iPhone's notifications, calls and music controls on your Galaxy Watch (Wear OS). Free and open source.
 
 [![Latest Release](https://img.shields.io/github/v/release/Irwanripansyahh/watchbridge?label=Download&color=brightgreen)](https://github.com/Irwanripansyahh/watchbridge/releases/latest)
@@ -210,17 +214,17 @@ From the watch: **WatchBridge → Settings → Updates**. No computer needed aft
 
 ## Quick Install (Recommended)
 
-> Works on macOS, Linux, and Windows. Takes about 3 minutes. The installer walks you through every step.
+> Works on macOS, Linux, and Windows. Takes about 3 minutes. The installer downloads the latest WatchBridge itself and walks you through every step — you don't need to download the APK.
 
-1. **Download** the latest release from [Releases](https://github.com/Irwanripansyahh/watchbridge/releases/latest):
-   - `watchbridge-X.Y.Z.apk`
-   - `install.sh` (macOS / Linux) **or** `install.bat` (Windows)
+1. **Start the installer:**
+   - **macOS / Linux** — paste this into Terminal:
+     ```bash
+     bash <(curl -fsSL https://raw.githubusercontent.com/Irwanripansyahh/watchbridge/master/scripts/install.sh)
+     ```
+     (or download `install.sh` from [Releases](https://github.com/Irwanripansyahh/watchbridge/releases/latest) and run `chmod +x install.sh && ./install.sh`)
+   - **Windows** — download `install.bat` from [Releases](https://github.com/Irwanripansyahh/watchbridge/releases/latest) and double-click it.
 
-   Put both files in the **same folder**.
-
-2. **Run the installer** from that folder:
-   - **macOS / Linux:** `chmod +x install.sh && ./install.sh`
-   - **Windows:** double-click `install.bat`
+2. The installer **downloads the latest WatchBridge** from GitHub Releases. (To install a specific version instead, put its `watchbridge-X.Y.Z.apk` next to the installer.)
 
 3. **Follow the guide.** It goes one step at a time and waits for you after each:
    1. Turn on **Developer options** on the watch
