@@ -439,7 +439,17 @@ class BleConnectionManager(
             .fail { _, status -> Log.w(TAG, "✗ Failed to enable AMS Entity Update: $status") }
             .enqueue()
 
-        // Tell iOS which attributes to send us: one write per entity
+        writeAmsSubscriptions(entityUpdate) {
+            Log.i(TAG, "✓ Subscribed to Apple Media Service")
+            onAmsReady?.invoke()
+        }
+    }
+
+    /**
+     * Tell iOS which attributes to send (one write per entity). Each write also makes iOS
+     * send the current values right away, which [refreshAms] relies on.
+     */
+    private fun writeAmsSubscriptions(entityUpdate: BluetoothGattCharacteristic, onDone: () -> Unit = {}) {
         writeCharacteristic(
             entityUpdate,
             byteArrayOf(
@@ -462,12 +472,20 @@ class BleConnectionManager(
             ),
             BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
         )
-            .done {
-                Log.i(TAG, "✓ Subscribed to Apple Media Service")
-                onAmsReady?.invoke()
-            }
+            .done { onDone() }
             .fail { _, status -> Log.w(TAG, "✗ AMS track subscription failed: $status") }
             .enqueue()
+    }
+
+    /**
+     * Ask iOS for the current now playing again. It otherwise only sends changes, so a
+     * missed first update would leave the watch showing "Nothing playing" until the track
+     * or play state changes.
+     */
+    fun refreshAms() {
+        val entityUpdate = amsEntityUpdateChar ?: return
+        Log.d(TAG, "Refreshing AMS now playing")
+        writeAmsSubscriptions(entityUpdate)
     }
 
     override fun onServicesInvalidated() {

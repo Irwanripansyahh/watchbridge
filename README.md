@@ -237,7 +237,7 @@ If you prefer to run ADB commands yourself:
 
 **Now Playing says "Media unavailable"** — Media controls are set up when the watch connects to the iPhone. Make sure the home screen shows *Connected*; if it does, tap **Reconnect now** once.
 
-**Now Playing says "Nothing playing"** — Start playback on the iPhone first. Only apps that appear in the iPhone's Lock Screen media controls can be controlled.
+**Now Playing says "Nothing playing"** — Start playback on the iPhone first; opening Music Control (app or tile) asks the phone for what's playing again. Only apps that appear in the iPhone's Lock Screen media controls can be controlled — some apps (and videos in a browser) don't report what they play.
 
 **Turning the bezel doesn't change the volume** — The Now Playing screen needs to be open and in front. Some players ignore remote volume changes; the volume buttons are greyed out for those.
 

@@ -78,6 +78,10 @@ class MediaTileService : TileService() {
         val media = WatchBridgeService.mediaManager
         var state = media?.state?.value ?: AmsMediaManager.MediaState()
 
+        // Nothing known yet: ask the phone again (iOS only sends changes); the tile is
+        // refreshed when the answer arrives
+        if (state.available && !state.hasPlayer) media?.refresh()
+
         // A button on the tile was tapped
         when (requestParams.currentState.lastClickableId) {
             ID_PREVIOUS -> media?.previousTrack()
@@ -105,7 +109,7 @@ class MediaTileService : TileService() {
             .setPrimaryLabelTextContent(
                 text(
                     // Without a track the player's name moves down into the title
-                    if (state.title.isNotEmpty()) state.playerName else "Music Control",
+                    if (state.title.isNotEmpty()) state.playerName.ifEmpty { "Music Control" } else "Music Control",
                     Typography.TYPOGRAPHY_CAPTION1,
                     COLOR_PRIMARY
                 )

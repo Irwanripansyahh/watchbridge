@@ -68,6 +68,9 @@ fun NowPlayingScreen(media: AmsMediaManager?) {
         }
     }
 
+    // iOS only sends changes; ask for the current track whenever the player is opened
+    LaunchedEffect(media) { media?.refresh() }
+
     val focusRequester = remember { FocusRequester() }
     var rotaryScroll by remember { mutableFloatStateOf(0f) }
     LaunchedEffect(Unit) { focusRequester.requestFocus() }
@@ -132,7 +135,7 @@ private fun PlayerControls(state: AmsMediaManager.MediaState, media: AmsMediaMan
             .padding(horizontal = 22.dp, vertical = 20.dp)
     ) {
         // Before a track is loaded the player's name is all there is: show it as the title
-        if (state.title.isNotEmpty()) {
+        if (state.title.isNotEmpty() && state.playerName.isNotEmpty()) {
             Text(
                 text = state.playerName,
                 style = MaterialTheme.typography.caption2,

@@ -37,7 +37,8 @@ class AmsMediaManager(private val connectionManager: BleConnectionManager) {
         val durationSeconds: Float = 0f,
         val supportedCommands: Set<Byte> = emptySet()
     ) {
-        val hasPlayer: Boolean get() = playerName.isNotEmpty()
+        /** Some players report a track but no app name, so either one counts. */
+        val hasPlayer: Boolean get() = playerName.isNotEmpty() || title.isNotEmpty()
 
         fun supports(command: Byte): Boolean = command in supportedCommands
 
@@ -96,6 +97,9 @@ class AmsMediaManager(private val connectionManager: BleConnectionManager) {
         }
         sendCommand(command)
     }
+
+    /** Fetch the current now playing from the phone again; see [BleConnectionManager.refreshAms]. */
+    fun refresh() = connectionManager.refreshAms()
 
     fun play() = sendCommand(AmsConstants.COMMAND_PLAY)
 
