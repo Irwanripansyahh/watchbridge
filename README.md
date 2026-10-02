@@ -93,7 +93,7 @@ iPhone notifications arrive as regular Wear OS notifications, so they look and b
 ### Calls
 
 - **Incoming call:** a full-screen call screen with the caller's name and **Accept** / **Decline** buttons. By default the call is answered on the iPhone.
-- **Talk on the watch:** turn on **Settings → Answer calls on watch** (it asks for the phone permissions), and connect the watch as the iPhone's call audio once — on the iPhone, **Settings → Bluetooth → tap the Galaxy Watch**. The watch then works like a Bluetooth headset: its own phone app rings, and answering there puts the call audio on the watch's speaker and microphone. With this on, WatchBridge shows no call screen of its own and leaves calls entirely to the watch's phone app. The Bluetooth audio link itself is made by the watch's system, not WatchBridge: if the watch's phone app doesn't ring within a few seconds (not connected as call audio), WatchBridge shows the call as a plain notification with **Answer on phone** / **Decline**, so it isn't missed.
+- **Talk on the watch:** **Answer calls on watch** is on by default — WatchBridge asks for the phone permissions together with the Bluetooth ones at the start, and the first pairing ends with one more step: in the iPhone's **Settings → Bluetooth**, the watch you just paired (listed once, as *WatchBridge*) should say **Connected** — if it says *Not Connected*, tap it so it becomes the call audio. You can turn it off in Settings. The watch then works like a Bluetooth headset: its own phone app rings, and answering there puts the call audio on the watch's speaker and microphone. With this on, WatchBridge shows no call screen of its own and leaves calls entirely to the watch's phone app. The Bluetooth audio link itself is made by the watch's system, not WatchBridge: if the watch's phone app doesn't ring within a few seconds (not connected as call audio), WatchBridge shows the call as a plain notification with **Answer on phone** / **Decline**, so it isn't missed.
 - **Ongoing call:** a screen with a call timer and a **Hang Up** button. Hang-up is best-effort, as it relies on undocumented iOS behaviour.
 - **Missed calls and voicemail** arrive as normal notifications.
 - Calls always vibrate, even when the Vibration setting is off.
@@ -176,7 +176,7 @@ Open the app → **Settings**.
 | **Respect DND** | On | While the **watch** is in Do Not Disturb, only incoming calls are shown. |
 | **Show pre-existing** | Off | Also show notifications that were already on the iPhone when the watch connected. |
 | **Show silent** | Off | Also show notifications that iOS delivered silently. |
-| **Answer calls on watch** | Off | Answer and talk on the watch when it's connected as the iPhone's Bluetooth call audio (see *Calls*). |
+| **Answer calls on watch** | On | Answer and talk on the watch when it's connected as the iPhone's Bluetooth call audio (see *Calls*). |
 | **Phone info on tile** | On | Show the phone's name and battery level at the top of the *Phone connection* tile. |
 | **Categories** | All on | Turn off whole iOS categories: Incoming Calls, Missed Calls, Voicemail, Social, Schedule, Email, News, Health & Fitness, Business & Finance, Location, Entertainment, Other. |
 
@@ -193,7 +193,7 @@ Galaxy Watch 4 and newer aren't supported by Samsung on iPhone — the Galaxy We
 No. There's no iPhone app. You pair the watch once in the iPhone's **Settings → Bluetooth**; iOS itself shares notifications (ANCS) and media controls (AMS) with paired Bluetooth devices.
 
 ### Can I answer calls and talk on the watch?
-Yes, when the watch is connected as the iPhone's Bluetooth call audio: turn on **Settings → Answer calls on watch**, then on the iPhone tap the watch in **Settings → Bluetooth**. Otherwise you can still accept or decline calls on the watch and talk on the iPhone. See *Calls*.
+Yes. It's set up during the first pairing: the watch asks for the phone permissions, and the last step has you check that the watch shows **Connected** in the iPhone's **Settings → Bluetooth** (tap it if it says *Not Connected*), so it becomes the call audio. Otherwise you can still accept or decline calls on the watch and talk on the iPhone. See *Calls*.
 
 ### Can I reply to messages from the watch?
 No. iOS doesn't let Bluetooth accessories reply to messages — only Apple Watch can. You can read, dismiss and use the notification's own actions (like *Clear*).

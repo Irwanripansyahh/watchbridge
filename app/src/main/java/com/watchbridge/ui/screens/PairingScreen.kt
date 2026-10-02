@@ -23,6 +23,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -41,6 +44,7 @@ import androidx.wear.compose.material.MaterialTheme
 import androidx.wear.compose.material.Text
 import com.watchbridge.ble.BleScanner
 import com.watchbridge.ble.ConnectionStateMachine
+import com.watchbridge.call.WatchCalls
 import com.watchbridge.service.WatchBridgeService
 import com.watchbridge.ui.components.WatchBridgeScaffold
 import com.watchbridge.ui.theme.SurfaceCard
@@ -69,10 +73,15 @@ fun PairingScreen(
         )
     } ?: emptyList()
 
+    // With "Answer calls on watch" on, pairing ends with one more step: making the watch the
+    // phone's call audio. Often that link comes up with the pairing; this covers when it doesn't.
+    var showCallStep by remember { mutableStateOf(false) }
+    val watchName = adapter?.name ?: "this watch"
+
     LaunchedEffect(smState) {
         if (smState == ConnectionStateMachine.State.READY) {
             delay(500)
-            onConnected()
+            if (WatchCalls.isEnabled(context)) showCallStep = true else onConnected()
         }
     }
 
@@ -93,6 +102,11 @@ fun PairingScreen(
                     color = MaterialTheme.colors.primary,
                     textAlign = TextAlign.Center
                 )
+            }
+
+            if (showCallStep) {
+                item { CallAudioStep(watchName = watchName, onDone = onConnected) }
+                return@ScalingLazyColumn
             }
 
             // Previously paired devices
@@ -201,6 +215,69 @@ fun PairingScreen(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun CallAudioStep(watchName: String, onDone: () -> Unit) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Spacer(Modifier.height(8.dp))
+        Text(
+            text = "Paired!",
+            style = MaterialTheme.typography.title3,
+            textAlign = TextAlign.Center,
+            color = MaterialTheme.colors.primary
+        )
+        Spacer(Modifier.height(8.dp))
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(SurfaceCard, RoundedCornerShape(12.dp))
+                .padding(12.dp)
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    text = "One more step for calls",
+                    style = MaterialTheme.typography.body2,
+                    textAlign = TextAlign.Center,
+                    color = MaterialTheme.colors.onSurface
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    // The phone lists the watch once, under the name it was paired with
+                    // ("WatchBridge"); that one entry also carries the call audio
+                    text = "On your phone: Settings → Bluetooth.\n" +
+                        "The watch you just paired (\"WatchBridge\" or \"$watchName\") " +
+                        "should say Connected. If it says Not Connected, tap it.",
+                    style = MaterialTheme.typography.caption1,
+                    textAlign = TextAlign.Center,
+                    color = MaterialTheme.colors.onSurfaceVariant
+                )
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        Chip(
+            onClick = onDone,
+            label = {
+                Text(
+                    text = "Done",
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            },
+            colors = ChipDefaults.primaryChipColors(),
+            modifier = Modifier.fillMaxWidth()
+        )
+        Spacer(Modifier.height(4.dp))
+        Text(
+            text = "Already Connected? Just tap Done.",
+            style = MaterialTheme.typography.caption2,
+            textAlign = TextAlign.Center,
+            color = MaterialTheme.colors.onSurfaceVariant
+        )
     }
 }
 

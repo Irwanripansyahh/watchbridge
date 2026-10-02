@@ -21,6 +21,7 @@ import androidx.wear.compose.navigation.composable
 import androidx.wear.compose.navigation.rememberSwipeDismissableNavController
 import com.watchbridge.ble.BleScanner
 import com.watchbridge.ble.BondManager
+import com.watchbridge.call.WatchCalls
 import com.watchbridge.ble.ConnectionStateMachine
 import com.watchbridge.service.WatchBridgeService
 import com.watchbridge.settings.SettingsManager
@@ -43,8 +44,9 @@ class MainActivity : ComponentActivity() {
 
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
-    ) { results ->
-        permissionsGranted = results.values.all { it }
+    ) {
+        // Only the required ones decide; the call permissions are optional
+        permissionsGranted = requiredPermissions().all { isGranted(it) }
         if (permissionsGranted) {
             startBridgeService()
         }
@@ -154,7 +156,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun checkPermissions() {
+    private fun requiredPermissions(): List<String> {
         val required = mutableListOf(
             Manifest.permission.BLUETOOTH_SCAN,
             Manifest.permission.BLUETOOTH_CONNECT,
@@ -165,16 +167,29 @@ class MainActivity : ComponentActivity() {
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
             required.add(Manifest.permission.POST_NOTIFICATIONS)
         }
+        return required
+    }
 
-        val missing = required.filter {
-            ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
+    private fun isGranted(permission: String): Boolean =
+        ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED
+
+    private fun checkPermissions() {
+        val missingRequired = requiredPermissions().filterNot { isGranted(it) }
+        // "Answer calls on watch" is on by default, so ask for its permissions once, up front,
+        // together with Bluetooth's instead of making the user find the setting later. Without
+        // them the bridge still runs (calls are answered on the phone); the setting asks again.
+        val missingCall = if (localSettings.isCallsOnWatchEnabled && !localSettings.callPermissionsAsked) {
+            WatchCalls.PERMISSIONS.filterNot { isGranted(it) }
+        } else {
+            emptyList()
         }
 
-        if (missing.isEmpty()) {
+        if (missingRequired.isEmpty() && missingCall.isEmpty()) {
             permissionsGranted = true
             startBridgeService()
         } else {
-            permissionLauncher.launch(missing.toTypedArray())
+            if (missingCall.isNotEmpty()) localSettings.markCallPermissionsAsked()
+            permissionLauncher.launch((missingRequired + missingCall).toTypedArray())
         }
     }
 

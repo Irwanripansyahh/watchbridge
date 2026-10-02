@@ -296,6 +296,8 @@ say
 say "On the ${BOLD}iPhone${RESET}:"
 say "  3. Open ${BOLD}Settings → Bluetooth${RESET} and tap ${BOLD}WatchBridge${RESET}, then ${BOLD}Pair${RESET}"
 say "  4. Tap the ${BOLD}(i)${RESET} next to WatchBridge and turn on ${BOLD}Share System Notifications${RESET}"
+say "  5. For calls on the watch: in ${BOLD}Settings → Bluetooth${RESET}, WatchBridge should say"
+say "     ${BOLD}Connected${RESET} — if it says Not Connected, tap it"
 say
 say "The watch shows ${BOLD}Connected${RESET} when it's done."
 wait_enter

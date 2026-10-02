@@ -25,6 +25,7 @@ class SettingsManager(context: Context) {
         private const val KEY_SHOW_SILENT = "show_silent"
         private const val KEY_SHOW_PHONE_INFO = "show_phone_info"
         private const val KEY_CALLS_ON_WATCH = "calls_on_watch"
+        private const val KEY_CALL_PERMISSIONS_ASKED = "call_permissions_asked"
         private const val KEY_CATEGORY_PREFIX = "category_enabled_"
     }
 
@@ -90,12 +91,24 @@ class SettingsManager(context: Context) {
         _showSilent.value = enabled
     }
 
-    private val _callsOnWatch = MutableStateFlow(prefs.getBoolean(KEY_CALLS_ON_WATCH, false))
+    private val _callsOnWatch = MutableStateFlow(prefs.getBoolean(KEY_CALLS_ON_WATCH, true))
     val callsOnWatch: StateFlow<Boolean> = _callsOnWatch.asStateFlow()
 
-    /** Answer calls on the watch (see WatchCalls). Read straight from SharedPreferences. */
+    /**
+     * Answer calls on the watch (see WatchCalls). On by default, so a first pairing sets up
+     * calls too; it only takes effect once the phone permissions are granted.
+     * Read straight from SharedPreferences.
+     */
     val isCallsOnWatchEnabled: Boolean
-        get() = prefs.getBoolean(KEY_CALLS_ON_WATCH, false)
+        get() = prefs.getBoolean(KEY_CALLS_ON_WATCH, true)
+
+    /** The phone permissions for calls were asked for at startup once already (don't nag). */
+    val callPermissionsAsked: Boolean
+        get() = prefs.getBoolean(KEY_CALL_PERMISSIONS_ASKED, false)
+
+    fun markCallPermissionsAsked() {
+        prefs.edit().putBoolean(KEY_CALL_PERMISSIONS_ASKED, true).apply()
+    }
 
     fun setCallsOnWatch(enabled: Boolean) {
         prefs.edit().putBoolean(KEY_CALLS_ON_WATCH, enabled).apply()

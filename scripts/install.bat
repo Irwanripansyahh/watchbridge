@@ -241,6 +241,8 @@ echo.
 echo   On the iPHONE:
 echo     3. Open Settings -^> Bluetooth and tap "WatchBridge", then "Pair"
 echo     4. Tap the (i) next to WatchBridge and turn on "Share System Notifications"
+echo     5. For calls on the watch: in Settings -^> Bluetooth, WatchBridge should say
+echo        "Connected" - if it says "Not Connected", tap it
 echo.
 echo   The watch shows "Connected" when it's done.
 echo.
