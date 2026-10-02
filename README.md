@@ -1,8 +1,8 @@
 # WatchBridge
 
-### Connect your Wear OS Galaxy Watch to an iPhone — no companion app needed.
+### Use your Samsung Galaxy Watch with an iPhone — no companion app needed.
 
-Your iPhone's notifications, calls and music controls, right on your Galaxy Watch. Free and open source.
+Get your iPhone's notifications, calls and music controls on your Galaxy Watch (Wear OS). Free and open source.
 
 [![Latest Release](https://img.shields.io/github/v/release/Irwanripansyahh/watchbridge?label=Download&color=brightgreen)](https://github.com/Irwanripansyahh/watchbridge/releases/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
@@ -10,7 +10,7 @@ Your iPhone's notifications, calls and music controls, right on your Galaxy Watc
 > **Forked from [rajtiwariee/watchbridge](https://github.com/rajtiwariee/watchbridge).** Thanks to the original author for the BLE/ANCS foundation.
 > This fork adds: native Wear OS notifications with each app's real icon and original time, per-app stacks and chat conversations, iPhone media controls (AMS), a camera remote for the iPhone, a connection tile, never-give-up reconnect plus auto-start after reboot, in-app updates from GitHub Releases, more reliable notification loading when many arrive at once, and a working vibration toggle.
 
-WatchBridge is a single Wear OS app that runs on your **Galaxy Watch 4 or newer (Wear OS 3+)** and connects to an iPhone over BLE to receive notifications and call alerts, and to control the iPhone's music, using Apple's ANCS (Apple Notification Center Service) and AMS (Apple Media Service) protocols.
+Samsung's Galaxy Watch 4 and newer run Wear OS and officially don't work with an iPhone. **WatchBridge makes them work together anyway**: it's a single Wear OS app that runs on your **Galaxy Watch 4 or newer (Wear OS 3+)** and connects to your iPhone over Bluetooth Low Energy to receive notifications and call alerts, and to control the iPhone's music, using Apple's own ANCS (Apple Notification Center Service) and AMS (Apple Media Service) protocols.
 
 ### No companion app on the iPhone
 
@@ -26,10 +26,10 @@ This works because notifications (ANCS) and media controls (AMS) are services **
 
 <table>
   <tr>
-    <td align="center"><img src="docs/screenshots/home.png" width="190" alt="Home screen showing the iPhone connection status"><br><sub>Home</sub></td>
-    <td align="center"><img src="docs/screenshots/notification.png" width="190" alt="WhatsApp notification with the real WhatsApp icon"><br><sub>Notification with the app's real icon</sub></td>
-    <td align="center"><img src="docs/screenshots/now-playing.png" width="190" alt="Now Playing media controls"><br><sub>iPhone media controls</sub></td>
-    <td align="center"><img src="docs/screenshots/tile.png" width="190" alt="Connection status tile"><br><sub>Connection tile</sub></td>
+    <td align="center"><img src="docs/screenshots/home.png" width="190" alt="WatchBridge on a Galaxy Watch showing it's connected to an iPhone"><br><sub>Home</sub></td>
+    <td align="center"><img src="docs/screenshots/notification.png" width="190" alt="iPhone WhatsApp notification on a Galaxy Watch with the real WhatsApp icon"><br><sub>Notification with the app's real icon</sub></td>
+    <td align="center"><img src="docs/screenshots/now-playing.png" width="190" alt="Controlling iPhone music from a Galaxy Watch"><br><sub>iPhone media controls</sub></td>
+    <td align="center"><img src="docs/screenshots/tile.png" width="190" alt="Wear OS tile showing the iPhone connection status"><br><sub>Connection tile</sub></td>
   </tr>
   <tr>
     <td align="center"><img src="docs/screenshots/home-menu.png" width="190" alt="Home menu with Now Playing and Settings"><br><sub>Home menu</sub></td>
@@ -59,6 +59,15 @@ This works because notifications (ANCS) and media controls (AMS) are services **
 | **Updates on the watch** | Check, download and install new releases from Settings — no computer needed after the first install |
 
 *Due to iOS limitations, replying to messages, starting calls, and syncing health data are not possible.*
+
+### Supported watches
+
+| Status | Devices |
+|---|---|
+| **Tested** | Samsung Galaxy Watch7 (One UI 8 Watch / Wear OS 6) |
+| **Should work** | Samsung Galaxy Watch4 / Watch4 Classic, Watch5 / Watch5 Pro, Watch6 / Watch6 Classic, Watch7, Watch Ultra, Watch8 / Watch8 Classic — any Galaxy Watch with Wear OS 3 or newer |
+| **Might work (untested)** | Other Wear OS 3+ watches, e.g. Google Pixel Watch, Mobvoi TicWatch |
+| **Phone** | Any iPhone — the notification and media services WatchBridge uses are built into iOS |
 
 ---
 
@@ -171,35 +180,61 @@ Per-category sound and vibration can also be fine-tuned in the watch's own notif
 
 ---
 
+## FAQ
+
+### Can I use a Samsung Galaxy Watch with an iPhone?
+Galaxy Watch 4 and newer aren't supported by Samsung on iPhone — the Galaxy Wearable app doesn't pair them with iOS. With WatchBridge they do work: notifications, calls, music controls and a camera remote, all over Bluetooth.
+
+### Do I need to install anything on my iPhone?
+No. There's no iPhone app. You pair the watch once in the iPhone's **Settings → Bluetooth**; iOS itself shares notifications (ANCS) and media controls (AMS) with paired Bluetooth devices.
+
+### Can I answer calls and talk on the watch?
+Yes, when the watch is connected as the iPhone's Bluetooth call audio: turn on **Settings → Answer calls on watch**, then on the iPhone tap the watch in **Settings → Bluetooth**. Otherwise you can still accept or decline calls on the watch and talk on the iPhone. See *Calls*.
+
+### Can I reply to messages from the watch?
+No. iOS doesn't let Bluetooth accessories reply to messages — only Apple Watch can. You can read, dismiss and use the notification's own actions (like *Clear*).
+
+### Will WhatsApp, Telegram, Instagram and other apps work?
+Yes. Every app that shows notifications on the iPhone shows them on the watch, with its real app icon. Chats are grouped per conversation.
+
+### Does it work with Google Pixel Watch or other Wear OS watches?
+It's built for Wear OS 3+, so it should, but only Galaxy Watch has been tested. Reports are welcome in [Issues](https://github.com/Irwanripansyahh/watchbridge/issues).
+
+### Is it free and safe?
+Free and open source (MIT). Notification content never leaves the watch; the only network use is fetching app icons and checking for updates (see *Privacy & Permissions*).
+
+### How do I update WatchBridge?
+From the watch: **WatchBridge → Settings → Updates**. No computer needed after the first install.
+
+---
+
 ## Quick Install (Recommended)
 
-> Works on macOS, Linux, and Windows. Takes 2–3 minutes.
+> Works on macOS, Linux, and Windows. Takes about 3 minutes. The installer walks you through every step.
 
 1. **Download** the latest release from [Releases](https://github.com/Irwanripansyahh/watchbridge/releases/latest):
    - `watchbridge-X.Y.Z.apk`
    - `install.sh` (macOS / Linux) **or** `install.bat` (Windows)
-   
+
    Put both files in the **same folder**.
 
-2. **Enable Developer Options on the watch:**
-   - Settings → About watch → Software → tap **Software version** 7 times.
-
-3. **Enable Wireless Debugging on the watch:**
-   - Settings → Developer options → **Wireless debugging** ON.
-
-4. **Run the installer** from the folder where you saved the files:
+2. **Run the installer** from that folder:
    - **macOS / Linux:** `chmod +x install.sh && ./install.sh`
    - **Windows:** double-click `install.bat`
-   
-   The script will prompt you for the pairing code and IP shown on the watch, install the APK, and allow WatchBridge to install its own updates. Done.
 
-5. **Pair with iPhone:**
-   - Open WatchBridge on the watch and grant Bluetooth permissions.
-   - On the iPhone, go to **Settings → Bluetooth** and tap **WatchBridge** when it appears.
+3. **Follow the guide.** It goes one step at a time and waits for you after each:
+   1. Turn on **Developer options** on the watch
+   2. Turn on **Wireless debugging**
+   3. **Pair** the computer with the watch (you type the code and address the watch shows; wrong ones are caught and you can retry)
+   4. **Connect** to the watch
+   5. **Install** WatchBridge (and allow it to install its own updates later)
+   6. **Open WatchBridge** on the watch and **pair your iPhone** in its Bluetooth settings
+
+   If the watch is already connected to the computer, the installer skips straight to installing. If an older build signed with a different key is on the watch, it offers to replace it.
 
 From now on, new versions install from the watch itself (**Settings → Updates**); no computer needed.
 
-> Need ADB? The script will tell you if it's missing. On Mac: `brew install --cask android-platform-tools`. On Windows/Linux: [download platform-tools](https://developer.android.com/tools/releases/platform-tools).
+> Need ADB? The installer checks for it and tells you how to get it — on a Mac with Homebrew it can install it for you. Otherwise: [download platform-tools](https://developer.android.com/tools/releases/platform-tools).
 
 ---
 
