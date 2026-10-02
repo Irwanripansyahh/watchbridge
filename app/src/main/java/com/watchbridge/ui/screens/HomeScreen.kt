@@ -27,6 +27,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -41,6 +42,7 @@ import androidx.wear.compose.material.MaterialTheme
 import androidx.wear.compose.material.Text
 import com.watchbridge.R
 import com.watchbridge.ams.AmsMediaManager
+import com.watchbridge.ble.BondManager
 import com.watchbridge.ble.ConnectionStateMachine
 import com.watchbridge.service.WatchBridgeService
 import com.watchbridge.ui.components.WatchBridgeScaffold
@@ -257,9 +259,12 @@ private fun ActionChip(
         }
         ConnectionStateMachine.State.IDLE,
         ConnectionStateMachine.State.FAILED -> {
+            // A phone paired before is reconnected directly; pairing is only for a first phone
+            val context = LocalContext.current
+            val paired = remember(smState) { BondManager(context).hasPairedPhone() }
             Chip(
-                onClick = onNavigateToPairing,
-                label = { Text("Connect") },
+                onClick = if (paired) onReconnect else onNavigateToPairing,
+                label = { Text(if (paired) "Reconnect" else "Connect") },
                 icon = {
                     Icon(
                         painter = painterResource(R.drawable.ic_bluetooth),

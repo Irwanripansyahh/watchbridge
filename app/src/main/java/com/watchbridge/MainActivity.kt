@@ -20,6 +20,7 @@ import androidx.wear.compose.navigation.SwipeDismissableNavHost
 import androidx.wear.compose.navigation.composable
 import androidx.wear.compose.navigation.rememberSwipeDismissableNavController
 import com.watchbridge.ble.BleScanner
+import com.watchbridge.ble.BondManager
 import com.watchbridge.ble.ConnectionStateMachine
 import com.watchbridge.service.WatchBridgeService
 import com.watchbridge.settings.SettingsManager
@@ -90,9 +91,20 @@ class MainActivity : ComponentActivity() {
                             },
                             onReconnect = {
                                 val sm = WatchBridgeService.stateMachine
-                                if (sm == null || !sm.autoConnectToBonded()) {
-                                    navController.navigate("pairing")
+                                val reconnecting = if (sm != null) {
+                                    sm.autoConnectToBonded()
+                                } else if (BondManager(this@MainActivity).hasPairedPhone()) {
+                                    // Service not running: start it, it reconnects to the paired phone
+                                    startForegroundService(
+                                        Intent(this@MainActivity, WatchBridgeService::class.java)
+                                            .setAction(WatchBridgeService.ACTION_CONNECT_BONDED)
+                                    )
+                                    true
+                                } else {
+                                    false
                                 }
+                                // Only a watch that never paired a phone goes to pairing
+                                if (!reconnecting) navController.navigate("pairing")
                             },
                             onTurnOnBluetooth = { turnOnBluetooth() },
                             onDisconnect = {

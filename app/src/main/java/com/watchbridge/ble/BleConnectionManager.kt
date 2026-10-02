@@ -44,6 +44,10 @@ class BleConnectionManager(
         // Standard Battery Service, which iOS offers to bonded accessories
         private val BATTERY_SERVICE_UUID = UUID.fromString("0000180f-0000-1000-8000-00805f9b34fb")
         private val BATTERY_LEVEL_UUID = UUID.fromString("00002a19-0000-1000-8000-00805f9b34fb")
+
+        // Standard Generic Access service: the name the phone gives itself
+        private val GENERIC_ACCESS_UUID = UUID.fromString("00001800-0000-1000-8000-00805f9b34fb")
+        private val DEVICE_NAME_UUID = UUID.fromString("00002a00-0000-1000-8000-00805f9b34fb")
     }
 
     enum class ConnectionState {
@@ -78,6 +82,10 @@ class BleConnectionManager(
     /** The iPhone's battery level in percent, or null when unknown (not connected). */
     private val _phoneBattery = MutableStateFlow<Int?>(null)
     val phoneBattery: StateFlow<Int?> = _phoneBattery.asStateFlow()
+
+    /** The name the phone reports for itself over GATT, or null if it didn't say. */
+    private val _phoneDeviceName = MutableStateFlow<String?>(null)
+    val phoneDeviceName: StateFlow<String?> = _phoneDeviceName.asStateFlow()
 
     private var onAmsReady: (() -> Unit)? = null
     private var onAmsRemoteCommands: ((ByteArray) -> Unit)? = null
@@ -358,6 +366,19 @@ class BleConnectionManager(
         // Queued after ANCS, so notifications work even if these fail
         setupAms()
         setupBattery()
+        readDeviceName()
+    }
+
+    /** The phone's own name, a fallback for when the watch's Bluetooth has no name for it. */
+    private fun readDeviceName() {
+        val name = currentGatt?.getService(GENERIC_ACCESS_UUID)?.getCharacteristic(DEVICE_NAME_UUID)
+            ?: return
+        readCharacteristic(name)
+            .with { _, data ->
+                _phoneDeviceName.value = data.value?.toString(Charsets.UTF_8)?.trim()?.ifEmpty { null }
+            }
+            .fail { _, status -> Log.w(TAG, "Phone device name read failed: $status") }
+            .enqueue()
     }
 
     /** Read the iPhone's battery level and follow its changes. Optional, like AMS. */
@@ -457,6 +478,7 @@ class BleConnectionManager(
         amsEntityUpdateChar = null
         amsEntityAttributeChar = null
         _phoneBattery.value = null
+        _phoneDeviceName.value = null
         currentGatt = null
         cancelBondTimeout()
         unregisterBondReceiver()

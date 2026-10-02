@@ -1,5 +1,6 @@
 package com.watchbridge.tile
 
+import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Context
 import androidx.concurrent.futures.CallbackToFutureAdapter
@@ -125,28 +126,33 @@ class ConnectionTileService : TileService() {
                 .build()
         )
 
-    /** "iPhone ▮ 82%": the paired iPhone's name and battery, each left out when unknown. */
+    /**
+     * "iPhone ▮ 82%": the phone's battery, labelled with its name. Blank when the battery
+     * level isn't known. The name is, in order: the phone's name on the watch's Bluetooth,
+     * the name the phone reports for itself, or "Your device battery".
+     */
+    @SuppressLint("MissingPermission")
     private fun phoneLine(): LayoutElementBuilders.LayoutElement {
         // Turned off in Settings: keep the line, empty, so the layout doesn't jump
         if (!SettingsManager(this).isPhoneInfoShown) return caption(" ", COLOR_PRIMARY)
 
-        // Paired devices can't be listed with Bluetooth off (or without the permission)
-        val name = runCatching { BondManager(this).getBondedDevice()?.name }.getOrNull()
-        val battery = WatchBridgeService.connectionManager?.phoneBattery?.value
+        val connection = WatchBridgeService.connectionManager
+        val battery = connection?.phoneBattery?.value ?: return caption(" ", COLOR_PRIMARY)
 
-        if (name == null && battery == null) return caption(" ", COLOR_PRIMARY)
+        // Paired devices can't be listed without the Bluetooth permission
+        val bluetoothName = runCatching {
+            BondManager(this).getBondedDevice()?.let { it.alias ?: it.name }
+        }.getOrNull()?.trim()?.ifEmpty { null }
+        val label = bluetoothName
+            ?: connection.phoneDeviceName.value
+            ?: "Your device battery"
 
+        val color = if (battery <= LOW_BATTERY_PERCENT) COLOR_DISCONNECTED else COLOR_DETAIL
         val row = LayoutElementBuilders.Row.Builder()
             .setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_CENTER)
-        if (name != null) {
-            row.addContent(caption(name, COLOR_PRIMARY))
-        }
-        if (battery != null) {
-            val color = if (battery <= LOW_BATTERY_PERCENT) COLOR_DISCONNECTED else COLOR_DETAIL
-            if (name != null) {
-                row.addContent(LayoutElementBuilders.Spacer.Builder().setWidth(dp(6f)).build())
-            }
-            row.addContent(
+            .addContent(caption(label, COLOR_PRIMARY))
+            .addContent(LayoutElementBuilders.Spacer.Builder().setWidth(dp(6f)).build())
+            .addContent(
                 LayoutElementBuilders.Image.Builder()
                     .setResourceId(ICON_BATTERY)
                     .setWidth(dp(12f))
@@ -156,8 +162,7 @@ class ConnectionTileService : TileService() {
                     )
                     .build()
             )
-            row.addContent(caption("$battery%", color))
-        }
+            .addContent(caption("$battery%", color))
         return row.build()
     }
 

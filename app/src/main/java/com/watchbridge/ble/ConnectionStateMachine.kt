@@ -41,6 +41,10 @@ class ConnectionStateMachine(
         private const val MAX_RECONNECT_ATTEMPTS = 8
         private const val QUICK_RECONNECT_THRESHOLD_MS = 5_000L
         private const val BOND_GRACE_PERIOD_MS = 35_000L
+
+        /** Right after Bluetooth turns on, the paired-device list can take a moment to fill. */
+        private const val BONDED_LIST_RETRIES = 10
+        private const val BONDED_LIST_RETRY_MS = 500L
     }
 
     enum class State {
@@ -115,19 +119,48 @@ class ConnectionStateMachine(
     /**
      * Try to auto-connect to the previously bonded device.
      */
+    /**
+     * Reconnect to the phone paired before. Returns false only if no phone was ever paired
+     * (then pairing is needed); a paired phone is always reconnected, never paired again.
+     */
     fun autoConnectToBonded(): Boolean {
+        if (!bondManager.hasPairedPhone()) return false
+        autoReconnectEnabled = true
         if (!bondManager.isBluetoothEnabled()) {
             // Paired devices can't even be listed with Bluetooth off; connect once it's back on
-            autoReconnectEnabled = true
             onBluetoothStateChanged(enabled = false)
             return true
         }
+        reconnectToPairedPhone()
+        return true
+    }
+
+    /**
+     * Connect straight to the paired phone. If it isn't in the paired-device list yet (just
+     * after Bluetooth turned on), wait for it briefly instead of declaring it unpaired.
+     */
+    private fun reconnectToPairedPhone() {
+        val savedAddress = bondManager.getSavedBondedAddress()
         val device = bondManager.getBondedDevice()
+            ?: targetDevice?.takeIf { it.address == savedAddress }
         if (device != null) {
             connectTo(device)
-            return true
+            return
         }
-        return false
+
+        reconnectJob?.cancel()
+        _state.value = State.CONNECTING
+        reconnectJob = scope.launch {
+            repeat(BONDED_LIST_RETRIES) {
+                delay(BONDED_LIST_RETRY_MS)
+                bondManager.getBondedDevice()?.let {
+                    connectTo(it)
+                    return@launch
+                }
+            }
+            Log.w(TAG, "Paired phone $savedAddress isn't in the paired-device list")
+            _state.value = State.FAILED
+        }
     }
 
     /**
@@ -162,14 +195,12 @@ class ConnectionStateMachine(
 
         if (_state.value != State.BLUETOOTH_OFF) return
         _state.value = State.IDLE
-        if (!autoReconnectEnabled) return
-        Log.i(TAG, "Bluetooth back on — reconnecting")
-        val device = targetDevice ?: bondManager.getBondedDevice()
-        if (device != null) {
-            connectTo(device)
-        } else {
-            _state.value = State.FAILED
-        }
+        if (!bondManager.hasPairedPhone()) return
+        // Straight back to the last phone, even after a manual disconnect: turning Bluetooth
+        // back on means "connect again"
+        Log.i(TAG, "Bluetooth back on — reconnecting to the paired phone")
+        autoReconnectEnabled = true
+        reconnectToPairedPhone()
     }
 
     /**
@@ -238,6 +269,11 @@ class ConnectionStateMachine(
                 reconnectAttempt = 0
                 currentBackoffMs = INITIAL_BACKOFF_MS
                 autoReconnectEnabled = true
+                // The last connected phone is the one to reconnect to from now on
+                connectionManager.bluetoothDevice?.let {
+                    targetDevice = it
+                    bondManager.rememberConnectedPhone(it)
+                }
                 Log.i(TAG, "Connection READY — backoff reset")
             }
 

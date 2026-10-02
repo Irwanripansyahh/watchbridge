@@ -65,7 +65,8 @@ class BondManager(private val context: Context) {
                     _bondState.value = BondState.NONE
                     if (prevState == BluetoothDevice.BOND_BONDING) {
                         Log.w(TAG, "Bonding failed for ${device.address}")
-                    } else if (prevState == BluetoothDevice.BOND_BONDED) {
+                    } else if (prevState == BluetoothDevice.BOND_BONDED && isBluetoothEnabled()) {
+                        // Only a real unpair: turning Bluetooth off must not make us forget the phone
                         Log.w(TAG, "Bond lost for ${device.address}")
                         clearBondedDevice()
                     }
@@ -100,10 +101,29 @@ class BondManager(private val context: Context) {
 
     fun isBluetoothEnabled(): Boolean = bluetoothManager.adapter?.isEnabled == true
 
+    /** A phone was paired before, so reconnecting (not pairing again) is what's needed. */
+    fun hasPairedPhone(): Boolean = getSavedBondedAddress() != null
+
     @SuppressLint("MissingPermission")
     fun getBondedDevice(): BluetoothDevice? {
         val address = getSavedBondedAddress() ?: return null
-        return bluetoothManager.adapter?.bondedDevices?.find { it.address == address }
+        val adapter = bluetoothManager.adapter ?: return null
+        if (!adapter.isEnabled) return null
+        // Not in the paired list (yet)? The saved address is still the phone to connect to
+        return adapter.bondedDevices?.find { it.address == address }
+            ?: runCatching { adapter.getRemoteDevice(address) }.getOrNull()
+    }
+
+    /**
+     * Remember the phone a session was just established with, so every later reconnect
+     * (Bluetooth back on, reboot, Reconnect buttons) goes straight to it. Saved on each
+     * successful connection, not only at pairing time: the phone may have been bonded
+     * outside WatchBridge (e.g. in the watch's Bluetooth settings).
+     */
+    fun rememberConnectedPhone(device: BluetoothDevice) {
+        if (device.address == getSavedBondedAddress()) return
+        Log.i(TAG, "Remembering ${device.address} as the phone to reconnect to")
+        saveBondedDevice(device.address)
     }
 
     fun getSavedBondedAddress(): String? {

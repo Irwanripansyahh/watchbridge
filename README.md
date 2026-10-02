@@ -126,7 +126,7 @@ WatchBridge has two tiles. To add one: on the watch, swipe to your tiles, press 
 
 The **Music Control** tile shows the playing app, track and artist, with previous / play-pause / next buttons and volume down / up (see *iPhone media controls*). The bezel only changes the volume in the full player; tiles only take taps.
 
-The **Phone connection** tile shows your iPhone's name and battery level at the top (left blank when unknown, e.g. while disconnected; can be turned off with *Phone info on tile* in Settings), and the connection state at a glance — *Connected*, *Connecting…*, *Phone out of range*, *Disconnected* — with a button that reconnects in one tap (or opens the app when there's nothing to fix).
+The **Phone connection** tile shows your iPhone's battery level at the top, labelled with its name — the name on the watch's Bluetooth, else the name the phone reports for itself, else *Your device battery*. The line stays blank while the battery level is unknown (e.g. while disconnected), and can be turned off with *Phone info on tile* in Settings. Below it, the tile shows the connection state at a glance — *Connected*, *Connecting…*, *Phone out of range*, *Disconnected* — with a button that reconnects in one tap (or opens the app when there's nothing to fix).
 
 ### Staying connected
 
@@ -134,8 +134,9 @@ You shouldn't need to open the app after the first pairing:
 
 - **iPhone out of range:** WatchBridge retries quickly for about 5 minutes, then switches to a low-power background wait. As soon as the iPhone is back in range, it reconnects on its own — whether you were away for 10 minutes or all day. The home screen shows *Waiting for phone* meanwhile.
 - **Watch reboot or app update:** the bridge starts again automatically.
-- **Watch Bluetooth off:** WatchBridge stops trying to reconnect (no point while Bluetooth is off), shows a *Bluetooth is off* notification, and the home screen offers **Turn on Bluetooth**. As soon as Bluetooth is back on, it reconnects by itself.
+- **Watch Bluetooth off:** WatchBridge stops trying to reconnect (no point while Bluetooth is off), shows a *Bluetooth is off* notification, and the home screen offers **Turn on Bluetooth**. As soon as Bluetooth is back on, it reconnects to the last phone by itself — no pairing again.
 - **Reconnect now:** to skip the wait, tap **Reconnect now** on the home screen or **Reconnect** on the tile.
+- **Pairing happens once:** WatchBridge remembers the last phone it connected to, and every reconnect (Reconnect buttons, Bluetooth back on, after a reboot) goes straight to that phone. The pairing screen is only for a watch that hasn't paired a phone yet.
 
 ### Updating
 

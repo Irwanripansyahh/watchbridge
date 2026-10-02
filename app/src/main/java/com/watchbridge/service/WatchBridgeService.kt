@@ -215,6 +215,9 @@ class WatchBridgeService : Service() {
         serviceScope.launch {
             connMgr.phoneBattery.collect { ConnectionTileService.requestUpdate(this@WatchBridgeService) }
         }
+        serviceScope.launch {
+            connMgr.phoneDeviceName.collect { ConnectionTileService.requestUpdate(this@WatchBridgeService) }
+        }
 
         // Refresh the media tile when what it shows changes (not on every position tick)
         serviceScope.launch {
