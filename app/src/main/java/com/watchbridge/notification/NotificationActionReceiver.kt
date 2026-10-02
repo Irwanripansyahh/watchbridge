@@ -4,6 +4,8 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.util.Log
+import com.watchbridge.ancs.AncsConstants
+import com.watchbridge.call.WatchCalls
 
 /**
  * Receives notification action broadcasts (accept/reject/dismiss)
@@ -30,6 +32,13 @@ class NotificationActionReceiver : BroadcastReceiver() {
         if (intent.action != ACTION_PERFORM) return
 
         val actionId = intent.getByteExtra("action_id", -1)
+
+        // Answer from the call notification: with the audio on the watch when it can be
+        if (intent.getBooleanExtra("is_call", false) &&
+            actionId == AncsConstants.ACTION_POSITIVE &&
+            WatchCalls.answer(context)
+        ) return
+
         val uids = intent.getIntArrayExtra(EXTRA_NOTIFICATION_UIDS)
             ?: intArrayOf(intent.getIntExtra("notification_uid", -1))
 

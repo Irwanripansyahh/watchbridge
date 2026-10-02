@@ -27,6 +27,10 @@
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
 
+    <!-- Answer calls on the watch through its own phone app (Settings → Answer calls on watch) -->
+    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+    <uses-permission android:name="android.permission.ANSWER_PHONE_CALLS" />
+
     <!-- Restart the bridge after a reboot or app update -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 

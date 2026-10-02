@@ -24,6 +24,7 @@ class SettingsManager(context: Context) {
         private const val KEY_SHOW_PRE_EXISTING = "show_pre_existing"
         private const val KEY_SHOW_SILENT = "show_silent"
         private const val KEY_SHOW_PHONE_INFO = "show_phone_info"
+        private const val KEY_CALLS_ON_WATCH = "calls_on_watch"
         private const val KEY_CATEGORY_PREFIX = "category_enabled_"
     }
 
@@ -87,6 +88,18 @@ class SettingsManager(context: Context) {
     fun setShowSilent(enabled: Boolean) {
         prefs.edit().putBoolean(KEY_SHOW_SILENT, enabled).apply()
         _showSilent.value = enabled
+    }
+
+    private val _callsOnWatch = MutableStateFlow(prefs.getBoolean(KEY_CALLS_ON_WATCH, false))
+    val callsOnWatch: StateFlow<Boolean> = _callsOnWatch.asStateFlow()
+
+    /** Answer calls on the watch (see WatchCalls). Read straight from SharedPreferences. */
+    val isCallsOnWatchEnabled: Boolean
+        get() = prefs.getBoolean(KEY_CALLS_ON_WATCH, false)
+
+    fun setCallsOnWatch(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_CALLS_ON_WATCH, enabled).apply()
+        _callsOnWatch.value = enabled
     }
 
     fun setShowPhoneInfo(enabled: Boolean) {

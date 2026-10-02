@@ -30,6 +30,7 @@ import androidx.wear.compose.material.MaterialTheme
 import androidx.wear.compose.material.Text
 import com.watchbridge.R
 import com.watchbridge.ancs.AncsConstants
+import com.watchbridge.call.WatchCalls
 import com.watchbridge.ui.theme.WatchBridgeTheme
 
 class IncomingCallActivity : ComponentActivity() {
@@ -50,7 +51,11 @@ class IncomingCallActivity : ComponentActivity() {
             WatchBridgeTheme {
                 IncomingCallScreen(
                     callerName = callerName,
-                    onAccept = { performAction(AncsConstants.ACTION_POSITIVE) },
+                    onAccept = {
+                        // Talk on the watch when it's the phone's hands-free device,
+                        // otherwise answer on the phone
+                        if (WatchCalls.answer(this)) finish() else performAction(AncsConstants.ACTION_POSITIVE)
+                    },
                     onDecline = { performAction(AncsConstants.ACTION_NEGATIVE) }
                 )
             }

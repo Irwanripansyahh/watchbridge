@@ -79,7 +79,8 @@ iPhone notifications arrive as regular Wear OS notifications, so they look and b
 
 ### Calls
 
-- **Incoming call:** a full-screen call screen with the caller's name and **Accept** / **Decline** buttons. The call itself still happens on the iPhone (or its headset) — the watch has no audio link to the iPhone.
+- **Incoming call:** a full-screen call screen with the caller's name and **Accept** / **Decline** buttons. By default the call is answered on the iPhone.
+- **Talk on the watch:** turn on **Settings → Answer calls on watch** (it asks for the phone permissions), and connect the watch as the iPhone's call audio once — on the iPhone, **Settings → Bluetooth → tap the Galaxy Watch**. The watch then works like a Bluetooth headset: its own phone app rings, and answering there puts the call audio on the watch's speaker and microphone. With this on, WatchBridge shows no call screen of its own and leaves calls entirely to the watch's phone app. The Bluetooth audio link itself is made by the watch's system, not WatchBridge: if the watch's phone app doesn't ring within a few seconds (not connected as call audio), WatchBridge shows the call as a plain notification with **Answer on phone** / **Decline**, so it isn't missed.
 - **Ongoing call:** a screen with a call timer and a **Hang Up** button. Hang-up is best-effort, as it relies on undocumented iOS behaviour.
 - **Missed calls and voicemail** arrive as normal notifications.
 - Calls always vibrate, even when the Vibration setting is off.
@@ -162,6 +163,7 @@ Open the app → **Settings**.
 | **Respect DND** | On | While the **watch** is in Do Not Disturb, only incoming calls are shown. |
 | **Show pre-existing** | Off | Also show notifications that were already on the iPhone when the watch connected. |
 | **Show silent** | Off | Also show notifications that iOS delivered silently. |
+| **Answer calls on watch** | Off | Answer and talk on the watch when it's connected as the iPhone's Bluetooth call audio (see *Calls*). |
 | **Phone info on tile** | On | Show the phone's name and battery level at the top of the *Phone connection* tile. |
 | **Categories** | All on | Turn off whole iOS categories: Incoming Calls, Missed Calls, Voicemail, Social, Schedule, Email, News, Health & Fitness, Business & Finance, Location, Entertainment, Other. |
 
@@ -364,6 +366,7 @@ The next code push will then auto-bump to `v0.2.1`, `v0.2.2`, etc.
 | Run at startup | Restart the bridge after a reboot or app update |
 | Internet, network state, change network state | Download icons of apps that aren't built in; check for and download updates (turning on Wi-Fi for the download) |
 | Install unknown apps | Install WatchBridge updates downloaded from GitHub Releases |
+| Phone state, answer phone calls | Only with *Answer calls on watch* on: see when the watch's own phone app rings, and answer it on the watch |
 
 Notification content never leaves the watch. The only network traffic is:
 - **Icon lookup:** for an app without a built-in icon, its bundle ID (e.g. `com.example.app`) is sent once to Apple's App Store (`itunes.apple.com`).

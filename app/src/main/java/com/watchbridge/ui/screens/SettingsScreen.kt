@@ -5,6 +5,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -36,6 +38,7 @@ import com.watchbridge.ancs.AncsConstants
 import com.watchbridge.notification.NotificationIcons
 import com.watchbridge.settings.SettingsManager
 import com.watchbridge.ui.components.WatchBridgeScaffold
+import com.watchbridge.call.WatchCalls
 import com.watchbridge.update.AppUpdater
 import kotlin.math.roundToInt
 
@@ -46,11 +49,16 @@ fun SettingsScreen(settings: SettingsManager) {
     val showPreExisting by settings.showPreExisting.collectAsState()
     val showSilent by settings.showSilent.collectAsState()
     val showPhoneInfo by settings.showPhoneInfo.collectAsState()
+    val callsOnWatch by settings.callsOnWatch.collectAsState()
 
     val categoryFilters = settings.getAllCategoryFilters()
     val listState = rememberScalingLazyListState()
 
     val context = LocalContext.current
+    // Turning "Answer calls on watch" on needs the phone permissions first
+    val callPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { results -> settings.setCallsOnWatch(results.values.all { it }) }
     val updateState by AppUpdater.state.collectAsState()
     var canInstall by remember { mutableStateOf(AppUpdater.canInstallUpdates(context)) }
     var showAdbHint by remember { mutableStateOf(false) }
@@ -173,6 +181,30 @@ fun SettingsScreen(settings: SettingsManager) {
                     checked = showSilent,
                     onCheckedChange = { settings.setShowSilent(it) }
                 )
+            }
+
+            item {
+                SettingsToggle(
+                    label = "Answer calls on watch",
+                    secondaryLabel = "Talk on the watch when it's your phone's Bluetooth audio",
+                    checked = callsOnWatch && WatchCalls.hasPermissions(context),
+                    onCheckedChange = { enable ->
+                        if (enable && !WatchCalls.hasPermissions(context)) {
+                            callPermissionLauncher.launch(WatchCalls.PERMISSIONS)
+                        } else {
+                            settings.setCallsOnWatch(enable)
+                        }
+                    }
+                )
+            }
+
+            if (callsOnWatch) {
+                item {
+                    HintText(
+                        "Connect the watch for call audio once: on your phone, " +
+                            "Settings → Bluetooth → tap this watch"
+                    )
+                }
             }
 
             item {
